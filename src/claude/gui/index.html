@@ -3,13 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="gui-token" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Event Calendar</title>
+<style>
+  :root { --line: #d0d4da; --muted: #667085; --accent: #2563eb; --sun: #d92d20; --sat: #1d4ed8; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif; margin: 0 auto; padding: 16px 20px 40px; max-width: 1200px; color: #1f2937; }
+  h1 { font-size: 1.4rem; margin: 0 0 12px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar h2 { font-size: 1.25rem; margin: 0 12px; min-width: 7em; text-align: center; }
+  button, select { font: inherit; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+  button:hover { background: #f3f4f6; }
+  .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .month > div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .dow-head { text-align: center; font-size: .85rem; padding: 4px 0; background: #f9fafb; color: var(--muted); }
+  .day, .pad { min-height: 96px; padding: 4px; }
+  .pad { background: #fafafa; }
+  .day .date { font-size: .85rem; font-weight: 600; }
+  .dow0 .date, .dow-head.dow0 { color: var(--sun); }
+  .dow6 .date, .dow-head.dow6 { color: var(--sat); }
+  .day ul { list-style: none; margin: 2px 0 0; padding: 0; }
+  .day .event { font-size: .78rem; line-height: 1.3; margin-bottom: 3px; padding: 2px 4px; border-radius: 4px; background: #eff4ff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .event a, .event-list a { color: inherit; text-decoration: none; }
+  .event a:hover, .event-list a:hover { text-decoration: underline; color: var(--accent); }
+  .time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 1.05rem; margin: 24px 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { background: #f9fafb; font-weight: 600; }
+  .when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .venue { color: var(--muted); }
+  .desc { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .empty { color: var(--muted); }
+  details { margin-top: 24px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .health td, .sources { font-size: .85rem; word-break: break-all; }
+  .health .state { white-space: nowrap; }
+  .sources { color: var(--muted); }
+</style>
 </head>
 <body>
 <h1>Event Calendar</h1>
-<section id="health"></section>
-<section id="sources"></section>
+<div class="toolbar">
+  <label>地域 <select id="region"></select></label>
+  <button id="prev" type="button">&lt; 前月</button>
+  <h2 id="month-title"></h2>
+  <button id="next" type="button">翌月 &gt;</button>
+  <button id="today" type="button">今月</button>
+</div>
 <section id="events"></section>
+<h3>イベント一覧</h3>
+<section id="event-list"></section>
+<details>
+  <summary>ソース状態</summary>
+  <section id="health"></section>
+  <section id="sources"></section>
+</details>
 <script type="module" src="/gui/app.js"></script>
 </body>
 </html>

@@ -10,23 +10,54 @@ export function esc(v) {
 
 const p2 = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
+// Local calendar date of an event: start_local_date (API) first, else the ISO prefix of start.
+export function eventDate(e) {
+  return String(e.start_local_date ?? e.start ?? e.start_utc ?? e.start_at ?? '').slice(0, 10);
+}
+
+// "HH:MM" in the event's tz, or '' for all-day / unknown.
+export function eventTime(e) {
+  if (e.all_day || !e.start_utc) return '';
+  const ms = Date.parse(e.start_utc);
+  if (Number.isNaN(ms)) return '';
+  try {
+    return new Intl.DateTimeFormat('ja-JP', { timeZone: e.tz || 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+  } catch {
+    return '';
+  }
+}
+
+// Only http(s) links are rendered as anchors (no javascript: etc.).
+function safeUrl(u) {
+  return typeof u === 'string' && /^https?:/i.test(u) ? u : '';
+}
 
 function eventsOn(events, date) {
-  return (events || []).filter((e) => String(e.start ?? e.start_at ?? '').slice(0, 10) === date);
+  return (events || []).filter((e) => eventDate(e) === date);
+}
+
+function eventLabel(e) {
+  const t = eventTime(e);
+  const title = esc(e.title);
+  const url = safeUrl(e.url);
+  const tip = esc([e.title, e.venue_name].filter(Boolean).join(' / '));
+  const body = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${title}</a>` : title;
+  return `<li class="event" title="${tip}">${t ? `<span class="time">${esc(t)}</span> ` : ''}${body}</li>`;
 }
 
 function dayCell(date, events) {
-  const items = eventsOn(events, date)
-    .map((e) => `<li class="event">${esc(e.title)}</li>`)
-    .join('');
-  return `<div class="day" data-date="${esc(date)}"><span class="date">${esc(date)}</span><ul>${items}</ul></div>`;
+  const items = eventsOn(events, date).map(eventLabel).join('');
+  const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return `<div class="day dow${dow}" data-date="${esc(date)}"><span class="date">${esc(Number(date.slice(8, 10)))}</span><ul>${items}</ul></div>`;
 }
 
 export function renderSources(sources) {
   const rows = (sources || [])
     .map(
       (s) =>
-        `<li class="source" data-id="${esc(s.id)}"><span class="name">${esc(s.name ?? s.id)}</span> <span class="state">${esc(s.state)}</span> <span class="version">v${esc(s.spec_version)}</span></li>`,
+        `<li class="source" data-id="${esc(s.id)}"><span class="name">${esc(s.name ?? s.url ?? s.id)}</span> <span class="kind">${esc(s.kind ?? '')}</span> <span class="state">${esc(s.state)}</span> <span class="version">v${esc(s.spec_version)}</span></li>`,
     )
     .join('');
   return `<ul class="sources">${rows}</ul>`;
@@ -38,9 +69,12 @@ export function renderSpecEditor(source) {
   return `<form class="spec-editor" data-source-id="${esc(s.id)}" data-expected-version="${esc(s.expected_version ?? s.spec_version)}"><textarea name="spec_json">${esc(spec)}</textarea><button type="submit">save</button></form>`;
 }
 
+// Month grid starting on Sunday; leading blanks are .pad (not .day), so .day count == days in month.
 export function renderMonth(year, month, events) {
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  let cells = '';
+  const lead = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  let cells = DOW.map((d, i) => `<div class="dow-head dow${i}">${d}</div>`).join('');
+  for (let i = 0; i < lead; i++) cells += '<div class="pad"></div>';
   for (let d = 1; d <= days; d++) {
     cells += dayCell(`${year}-${p2(month)}-${p2(d)}`, events);
   }
@@ -55,6 +89,23 @@ export function renderWeek(startDate, events) {
     cells += dayCell(ymd(new Date(start + i * 86400000)), events);
   }
   return `<div class="week" data-start="${esc(startDate)}">${cells}</div>`;
+}
+
+// Chronological list of events with date, time, title (linked), venue.
+export function renderEventList(events) {
+  const list = [...(events || [])].sort((a, b) => String(a.start_utc ?? eventDate(a)).localeCompare(String(b.start_utc ?? eventDate(b))));
+  if (list.length === 0) return '<p class="empty">この月のイベントはありません</p>';
+  const rows = list
+    .map((e) => {
+      const d = eventDate(e);
+      const dow = d ? DOW[new Date(`${d}T00:00:00Z`).getUTCDay()] : '';
+      const url = safeUrl(e.url);
+      const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>` : esc(e.title);
+      const desc = e.description ? `<div class="desc">${esc(e.description)}</div>` : '';
+      return `<tr><td class="when">${esc(d)}(${esc(dow)}) ${esc(eventTime(e) || '終日')}</td><td>${title}${desc}</td><td class="venue">${esc(e.venue_name ?? '')}</td></tr>`;
+    })
+    .join('');
+  return `<table class="event-list"><thead><tr><th>日時</th><th>イベント</th><th>会場</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderHealth(sources) {

@@ -57,12 +57,24 @@ interface Spec extends ExtractSpec {
 }
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+// Japanese "2026年12月13日(日) 10:00" (first date wins for ranges like "A〜B")
+const JA_DATE = /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:\s*[(（][^)）]*[)）])?(?:\s*(\d{1,2})[:：時](\d{2})?)?/;
 
 interface Parsed { utc: string; allDay: boolean }
 
-/** Parse an ISO-like date/datetime. Offset-less values are interpreted in tz. Returns null if unparsable. */
+function jaToIso(s: string): string | null {
+  const j = JA_DATE.exec(s);
+  if (!j) return null;
+  const p2 = (v: string) => v.padStart(2, '0');
+  const date = `${j[1]}-${p2(j[2])}-${p2(j[3])}`;
+  return j[4] === undefined ? date : `${date}T${p2(j[4])}:${p2(j[5] ?? '0')}`;
+}
+
+/** Parse an ISO-like (or Japanese 年月日) date/datetime. Offset-less values are interpreted in tz. Returns null if unparsable. */
 export function parseWhen(s: string | null, tz: string): Parsed | null {
   if (!s) return null;
+  const ja = ISO.test(s.trim()) ? null : jaToIso(s);
+  if (ja) s = ja;
   const m = ISO.exec(s.trim());
   if (!m) {
     // RFC 822 style (RSS pubDate) etc.: only accepted when it carries an explicit zone
