@@ -80,7 +80,7 @@ test('User-Agent contains contact_url', async () => {
     s.text('/ua', 'ok');
     const r = await fetchSafe(`${s.base}/ua`, { config: allow });
     assert.equal(r.outcomeHint, 'ok');
-    assert.ok(String(s.lastHeaders('/ua')?.['user-agent']).includes('http://127.0.0.1:8787/about'));
+    assert.ok(String(s.lastHeaders('/ua')?.['user-agent']).includes('http://127.0.0.1:18787/about'));
   } finally { await s.close(); }
 });
 

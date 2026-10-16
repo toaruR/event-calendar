@@ -74,7 +74,7 @@ npm run check          # = typecheck && lint && modules-load テスト
 ## デーモン
 
 ```
-node src/daemon.ts --port 8787 --data-dir .event-calendar [--stdin-shutdown]
+node src/daemon.ts --port 18787 --data-dir .event-calendar [--stdin-shutdown]
 ```
 
 - 起動後 stdout に `{"event":"listening","port":N}` を 1 行出力。ポート未指定時は config の `listen`、`--port 0` で空きポート。
@@ -110,7 +110,7 @@ node src/daemon.ts --port 8787 --data-dir .event-calendar [--stdin-shutdown]
 
 ## GUI
 
-`gui/` の静的ファイル(`index.html`, `app.js`, `render.js`)。ブラウザで `http://127.0.0.1:8787/` を開く。`app.js` が meta から token を読み、`X-GUI-Token` 付きで `GET /sources`, `/events`, `/health` を呼び、ヘルス・ソース一覧・月表示のイベントを描画する。ソース更新用に `PATCH /sources/{id}` (`spec` + `expected_version`) 呼び出し関数も持つ。
+`gui/` の静的ファイル(`index.html`, `app.js`, `render.js`)。ブラウザで `http://127.0.0.1:18787/` を開く。`app.js` が meta から token を読み、`X-GUI-Token` 付きで `GET /sources`, `/events`, `/health` を呼び、ヘルス・ソース一覧・月表示のイベントを描画する。ソース更新用に `PATCH /sources/{id}` (`spec` + `expected_version`) 呼び出し関数も持つ。
 
 ## 既定設定 (`src/config.ts`)
 
@@ -143,13 +143,13 @@ node src/daemon.ts --port 8787 --data-dir .event-calendar [--stdin-shutdown]
 | keyword_full_hits | 2 |
 | min_confidence | 0.5 |
 | trust | 0.5 |
-| listen | `127.0.0.1:8787` |
+| listen | `127.0.0.1:18787` |
 | busy_timeout | 5000 |
 | search_provider | `none` |
 | geocoder | `none` |
 | redact_contact | true |
 | ssrf_allowlist | `[]` |
-| contact_url | `http://127.0.0.1:8787/about` |
+| contact_url | `http://127.0.0.1:18787/about` |
 | host_rate | `{requests: 1, per_sec: 5}` |
 | retry_backoff | `{base_sec: 60, cap_sec: 600, jitter: 0.2, max_attempts: 5}` |
 | failure_stretch_cap_sec | 86400 |

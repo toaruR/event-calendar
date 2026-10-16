@@ -101,9 +101,9 @@ export interface ServerOpts {
 }
 
 function defaultPort(core: Core): number {
-  const listen = core.deps.config?.listen ?? '127.0.0.1:8787';
+  const listen = core.deps.config?.listen ?? '127.0.0.1:18787';
   const p = Number(listen.split(':').pop());
-  return Number.isInteger(p) ? p : 8787;
+  return Number.isInteger(p) ? p : 18787;
 }
 
 export function createServer(core: Core, opts: ServerOpts = {}): HttpCore {
