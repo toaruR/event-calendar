@@ -39,9 +39,12 @@ export function extractRss(xml: string): ExtractResult {
         start = txt(el, 'published') ?? txt(el, 'updated');
       }
       const uid = txt(el, 'guid') ?? txt(el, 'id') ?? url ?? `${title}|${start ?? ''}`;
+      const encoded = el.children('content\\:encoded').first().text().trim();
+      const content = encoded === '' ? null : cheerio.load(encoded).root().text().replaceAll('\n', ' ').trim() || null;
       items.push({
         source_uid: uid, title, start, end: null, venue: null, address: null, url,
         description: txt(el, 'description') ?? txt(el, 'summary') ?? txt(el, 'content'),
+        ...(content ? { content } : {}),
       });
     }
     return { items, warnings };

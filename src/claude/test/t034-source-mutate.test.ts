@@ -134,3 +134,17 @@ test('interval_sec=899 -> INVALID_ARGUMENT; update to a 0-item spec -> ZERO_ITEM
   assert.equal(ok.source.enabled, false);
   assert.equal(ok.source.state, 'disabled');
 });
+
+test('spec update / rollback clears etag and last_modified (next run re-extracts, no 304)', async () => {
+  const { db, deps, id } = await setup();
+  const setValidators = () => db.prepare("UPDATE source SET etag = '\"v1\"', last_modified = 'Thu, 01 Oct 2026 00:00:00 GMT' WHERE id = ?").run(id);
+  const validators = () => db.prepare('SELECT etag, last_modified FROM source WHERE id = ?').get(id) as { etag: string | null; last_modified: string | null };
+  setValidators();
+  await updateSource(db, id, { expected_version: 1, trust: 0.7 }, deps);
+  assert.equal(validators().etag, '"v1"'); // non-spec update keeps validators
+  await updateSource(db, id, { expected_version: 2, spec: { kind: 'jsonld', region_policy: { mode: 'keyword', min_confidence: 0.5 } } }, deps);
+  assert.deepEqual({ ...validators() }, { etag: null, last_modified: null });
+  setValidators();
+  rollbackSource(db, id, 1, deps);
+  assert.deepEqual({ ...validators() }, { etag: null, last_modified: null });
+});

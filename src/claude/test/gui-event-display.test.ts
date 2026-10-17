@@ -45,3 +45,23 @@ test('monthRange pads a day on each side; regionsOf dedups', () => {
   assert.deepEqual(monthRange(2026, 11), { from: '2026-10-31T00:00:00.000Z', to: '2026-12-02T00:00:00.000Z' });
   assert.deepEqual(regionsOf([{ region_id: 'b' }, { region_id: 'a' }, { region_id: 'b' }]), ['a', 'b']);
 });
+
+test('renderMonth weekStart monday: header starts 月, leading pads shift', () => {
+  const $ = cheerio.load(renderMonth(2026, 11, [], 'monday'));
+  assert.equal($('.dow-head').first().text(), '月');
+  assert.equal($('.dow-head').last().text(), '日');
+  assert.equal($('.pad').length, 6); // 2026-11-01 is Sunday
+  assert.equal($('.day').length, 30);
+  const s = cheerio.load(renderMonth(2026, 10, [], 'monday'));
+  assert.equal(s('.pad').length, 3); // Thursday
+  assert.equal(cheerio.load(renderMonth(2026, 11, [])).root().find('.dow-head').first().text(), '日');
+});
+
+test('readWeekStart reads meta, defaults to sunday', async () => {
+  const { readWeekStart } = await import('../gui/app.js');
+  const doc = (v: string | null) => ({ querySelector: () => (v === null ? null : { getAttribute: () => v }) });
+  assert.equal(readWeekStart(doc('monday')), 'monday');
+  assert.equal(readWeekStart(doc('')), 'sunday');
+  assert.equal(readWeekStart(doc('x')), 'sunday');
+  assert.equal(readWeekStart(doc(null)), 'sunday');
+});

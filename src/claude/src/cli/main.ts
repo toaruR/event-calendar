@@ -2,9 +2,8 @@ import { AppError, errorEnvelope, exitCode } from '../errors.ts';
 import { callTool, TOOL_NAMES } from './client.ts';
 import type { CallOpts } from './client.ts';
 import { startDaemon, parseDaemonArgs } from '../daemon.ts';
-import { readFileSync } from 'node:fs';
-import { defaultConfig, loadConfig } from '../config.ts';
-import type { Config } from '../config.ts';
+import { loadConfigFile } from '../config.ts';
+export { loadConfigFile };
 
 export interface CliIo { out: (s: string) => void; err: (s: string) => void }
 
@@ -72,35 +71,6 @@ export function parseArgs(argv: string[]): Parsed {
   const parsed: Parsed = { tool: tool ?? words.join(' '), input, opts, help: g['help'] === true && tool === undefined };
   if (g['config'] !== undefined) parsed.configPath = g['config'] === true ? '' : g['config'];
   return parsed;
-}
-
-const HOST_RE = /^[a-z0-9]([a-z0-9.:_-]*[a-z0-9])?$/i;
-
-/**
- * Load the operator-supplied `--config <file>` (embedded mode only): a JSON object of Config overrides.
- * Throws AppError(INVALID_ARGUMENT) for a missing file, invalid JSON, unknown keys or invalid ssrf_allowlist entries.
- */
-export function loadConfigFile(path: string): Config {
-  const bad = (m: string, details: Record<string, unknown> = {}): AppError => new AppError('INVALID_ARGUMENT', m, { config: path, ...details });
-  if (path === '') throw bad('--config requires a file path');
-  let raw: string;
-  try { raw = readFileSync(path, 'utf8'); } catch (e) {
-    throw bad(`cannot read config file: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  let json: unknown;
-  try { json = JSON.parse(raw); } catch { throw bad('config file is not valid JSON'); }
-  if (json === null || typeof json !== 'object' || Array.isArray(json)) throw bad('config file must contain a JSON object');
-  const known = Object.keys(defaultConfig());
-  const unknown = Object.keys(json).filter((k) => !known.includes(k));
-  if (unknown.length > 0) throw bad(`unknown config keys: ${unknown.join(', ')}`, { unknown });
-  const allow = (json as Record<string, unknown>)['ssrf_allowlist'];
-  if (allow !== undefined) {
-    if (!Array.isArray(allow)) throw bad('ssrf_allowlist must be an array of hostnames');
-    for (const h of allow) {
-      if (typeof h !== 'string' || !HOST_RE.test(h)) throw bad('invalid ssrf_allowlist entry (hostname or IP only, no scheme/port/path)', { entry: h });
-    }
-  }
-  return loadConfig(json as Partial<Config>);
 }
 
 const USAGE = `usage: ec <command> [--key value ...] [--embedded] [--base-url URL] [--data-dir DIR] [--config FILE (embedded only)]\ncommands: ${['daemon', ...TOOL_NAMES.map((t) => t.replaceAll('_', ' '))].join(', ')}\n`;

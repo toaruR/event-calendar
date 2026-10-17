@@ -69,12 +69,12 @@ npm run check          # = typecheck && lint && modules-load テスト
 - 既定ではデーモンの HTTP API (`http://<listen>`、`--base-url` で変更)に接続する。
 - `--embedded` はデーモンなしでプロセス内の DB(既定 `<data-dir>/event-calendar.db`、data-dir 既定 `.event-calendar`)に直接実行する。バックグラウンドワーカーは起動しない。
 - `--config <file>` は **`--embedded` と併用時のみ**有効(単独だと INVALID_ARGUMENT, exit 2)。設定のオーバーライドを JSON オブジェクトで渡す。未知のキー、JSON 不正、ファイル読込不可、`ssrf_allowlist` の不正値(ホスト名/IP のみ、スキーム・ポート・パス不可)は INVALID_ARGUMENT。設定の指定手段はこのファイルのみで、環境変数の許可リスト機構は存在しない。
-- `daemon` サブコマンド/`ecd` には `--config` は無い(`startDaemon` はプログラムからの `config` 引数のみ)。
+- デーモン(`node src/daemon.ts` / `ecd` / `ec daemon`)も `--config <file>` を受け付ける。検証規則は同じで、不正なら起動せず終了コード 1。
 
 ## デーモン
 
 ```
-node src/daemon.ts --port 18787 --data-dir .event-calendar [--stdin-shutdown]
+node src/daemon.ts --port 18787 --data-dir .event-calendar [--config config.json] [--stdin-shutdown]
 ```
 
 - 起動後 stdout に `{"event":"listening","port":N}` を 1 行出力。ポート未指定時は config の `listen`、`--port 0` で空きポート。
@@ -110,7 +110,17 @@ node src/daemon.ts --port 18787 --data-dir .event-calendar [--stdin-shutdown]
 
 ## GUI
 
-`gui/` の静的ファイル(`index.html`, `app.js`, `render.js`)。ブラウザで `http://127.0.0.1:18787/` を開く。`app.js` が meta から token を読み、`X-GUI-Token` 付きで `GET /sources`, `/events`, `/health` を呼び、ヘルス・ソース一覧・月表示のイベントを描画する。ソース更新用に `PATCH /sources/{id}` (`spec` + `expected_version`) 呼び出し関数も持つ。
+`gui/` の静的ファイル(`index.html`, `app.js`, `render.js`)。ブラウザで `http://127.0.0.1:18787/` を開く。週の開始曜日は設定 `week_start`(`"sunday"` / `"monday"`)で切り替え、デーモンが `index.html` の `<meta name="week-start">` に埋め込む。例: `{"week_start": "monday"}` を `--config` で渡す。`app.js` が meta から token を読み、`X-GUI-Token` 付きで `GET /sources`, `/events`, `/health` を呼び、ヘルス・ソース一覧・月表示のイベントを描画する。ソース更新用に `PATCH /sources/{id}` (`spec` + `expected_version`) 呼び出し関数も持つ。
+
+## ソース spec: 記事日付と開催日 (`date_from`)
+
+ニュース系 RSS の pubDate は記事の公開日で、開催日ではない。spec に `"date_from": "content"` を指定すると、タイトル→概要→本文(`content:encoded`)の順に最初の和文日付(`令和8年11月14日(土)`, `2026年11月14日`, `10月18日開催`, `11月14日 10:30`, `10月18日〜19日` など)を開催日として使う。年なしの日付は公開日を基準に年を推定する。開催日が見つからない記事は取り込まない(warning に件数)。既定は `"published"`(従来どおり)。
+
+```
+ec source update --id <id> --expected_version <v> --spec '{"kind":"rss","date_from":"content","region_policy":{"mode":"trust_source"}}'
+```
+
+spec を更新すると ETag / Last-Modified はクリアされ、次回実行は 304 にならず再抽出される。
 
 ## 既定設定 (`src/config.ts`)
 
@@ -156,6 +166,7 @@ node src/daemon.ts --port 18787 --data-dir .event-calendar [--stdin-shutdown]
 | robots_cache | 86400 |
 | require_approval | `["source_remove", "enable_browser"]` |
 | approval_token_ttl | 600 |
+| week_start | `"sunday"`(GUI カレンダーの週の開始曜日。`"monday"` で月曜始まり) |
 
 オーバーライドは浅いマージ(`host_rate` / `retry_backoff` は 1 階層マージ)。
 

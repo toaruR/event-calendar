@@ -8,6 +8,7 @@ export const SOURCE_SPEC_SCHEMA = {
   then: { required: ['extract'] },
   properties: {
     kind: { enum: ['ical', 'rss', 'jsonld', 'html', 'json_api'] },
+    date_from: { enum: ['published', 'content'] },
     fetch: {
       type: 'object',
       properties: {

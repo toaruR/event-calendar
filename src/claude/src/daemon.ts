@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 import { openDb } from './db.ts';
-import { loadConfig } from './config.ts';
+import { loadConfig, loadConfigFile } from './config.ts';
 import type { Config } from './config.ts';
 import { createCore, unrefClock } from './core.ts';
 import type { CoreDeps, CoreHandle } from './core.ts';
@@ -63,7 +63,7 @@ export async function startDaemon(opts: DaemonOpts = {}): Promise<Daemon> {
   };
 }
 
-/** CLI args: --port N --db PATH --data-dir DIR --host H [--stdin-shutdown] */
+/** CLI args: --port N --db PATH --data-dir DIR --host H --config FILE [--stdin-shutdown] */
 export function parseDaemonArgs(argv: string[]): DaemonOpts {
   const o: DaemonOpts = {};
   for (let i = 0; i < argv.length; i++) {
@@ -73,6 +73,7 @@ export function parseDaemonArgs(argv: string[]): DaemonOpts {
     else if (a === '--db' && v !== undefined) { o.dbPath = v; i++; }
     else if (a === '--data-dir' && v !== undefined) { o.dataDir = v; i++; }
     else if (a === '--host' && v !== undefined) { o.host = v; i++; }
+    else if (a === '--config' && v !== undefined) { o.config = loadConfigFile(v); i++; }
   }
   return o;
 }

@@ -18,8 +18,10 @@ export function isStaticPath(path: string): boolean {
   return path === '/' || path.startsWith('/gui/');
 }
 
-/** Serve GET / (index.html with the gui_token embedded) and GET /gui/* (files under gui/ only). */
-export function serveStatic(rawPath: string, token: string): RouteResult {
+export interface GuiSettings { weekStart?: string }
+
+/** Serve GET / (index.html with the gui_token and GUI settings embedded) and GET /gui/* (files under gui/ only). */
+export function serveStatic(rawPath: string, token: string, gui: GuiSettings = {}): RouteResult {
   let rel: string;
   try { rel = rawPath === '/' ? 'index.html' : decodeURIComponent(rawPath.slice('/gui/'.length)); } catch {
     throw new AppError('INVALID_ARGUMENT', 'bad path encoding', {});
@@ -33,6 +35,10 @@ export function serveStatic(rawPath: string, token: string): RouteResult {
   try { isFile = statSync(file).isFile(); } catch { isFile = false; }
   if (!isFile) throw new AppError('NOT_FOUND', `no such file: ${rawPath}`, { path: rawPath });
   let text = readFileSync(file, 'utf8');
-  if (rel === 'index.html') text = text.replaceAll('<meta name="gui-token" content="">', `<meta name="gui-token" content="${token}">`);
+  if (rel === 'index.html') {
+    text = text.replaceAll('<meta name="gui-token" content="">', `<meta name="gui-token" content="${token}">`);
+    const ws = gui.weekStart === 'monday' ? 'monday' : 'sunday';
+    text = text.replaceAll('<meta name="week-start" content="">', `<meta name="week-start" content="${ws}">`);
+  }
   return { raw: text, headers: { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' } };
 }

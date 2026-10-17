@@ -124,7 +124,7 @@ export function createServer(core: Core, opts: ServerOpts = {}): HttpCore {
         const method = req.method ?? 'GET';
         const rawPath = (req.url ?? '/').split('?')[0]!;
         if (method === 'GET' && (isStaticPath(rawPath) || isStaticPath(u.pathname))) {
-          const o = serveStatic(isStaticPath(rawPath) ? rawPath : u.pathname, token);
+          const o = serveStatic(isStaticPath(rawPath) ? rawPath : u.pathname, token, { weekStart: core.deps.config?.week_start });
           send(res, 200, undefined, o.raw, o.headers);
           return;
         }

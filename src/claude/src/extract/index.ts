@@ -7,11 +7,14 @@ import { extractCss } from './css.ts';
 import type { CssSpec } from './css.ts';
 import { extractWithLlm } from './llm-fallback.ts';
 import type { LlmClient, LlmValidate } from './llm-fallback.ts';
-import type { ExtractResult } from './types.ts';
+import type { ExtractResult, RawItem } from './types.ts';
+import { findEventDateIn } from '../normalize/event-date.ts';
 
 export type SourceKind = 'ical' | 'rss' | 'jsonld' | 'html' | 'json_api';
 
 export interface ExtractSpec {
+  /** 'content': take the event date from title/description/body instead of the feed/page date; undated items are dropped */
+  date_from?: 'published' | 'content';
   fetch?: CssSpec['fetch'];
   extract?: CssSpec['extract'] & { llm_fallback?: boolean };
 }
@@ -42,11 +45,45 @@ export interface ExtractOutcome extends ExtractResult {
 }
 
 /**
+ * date_from:'content' — replace each item's start/end with the first event date found in
+ * title -> description -> content (year-less dates are resolved against the published date).
+ */
+export function applyContentDates(items: RawItem[], deps: Pick<ExtractDeps, 'now' | 'config'>): { items: RawItem[]; dropped: number } {
+  const now = deps.now instanceof Date ? deps.now : new Date(deps.now);
+  const pastWindow = deps.config?.year_past_window ?? 30;
+  const futureWindow = deps.config?.year_future_window ?? 183;
+  const out: RawItem[] = [];
+  let dropped = 0;
+  for (const it of items) {
+    const pub = it.start ? Date.parse(it.start) : Number.NaN;
+    const ref = Number.isNaN(pub) ? now : new Date(pub);
+    const d = findEventDateIn([it.title, it.description, it.content], { ref, pastWindow, futureWindow });
+    if (!d) { dropped++; continue; }
+    const { content: _content, ...rest } = it;
+    out.push({ ...rest, start: d.start, end: d.end, ...(d.status === 'tentative' ? { status: 'tentative' } : {}) });
+  }
+  return { items: out, dropped };
+}
+
+/**
  * Dispatch by kind. Priority: iCal -> JSON-LD -> RSS/Atom -> CSS -> LLM.
  * The first extractor that yields >=1 item wins; later ones are not called.
  * LLM runs only when spec.extract.llm_fallback === true and nothing else yielded items.
  */
 export async function extract(
+  kind: SourceKind,
+  body: string,
+  spec: ExtractSpec,
+  deps: ExtractDeps,
+): Promise<ExtractOutcome> {
+  const r = await extractRaw(kind, body, spec, deps);
+  if (spec.date_from !== 'content' || r.items.length === 0) return r;
+  const { items, dropped } = applyContentDates(r.items, deps);
+  const warnings = dropped > 0 ? [...r.warnings, `${dropped} item(s) without event date in content dropped`] : r.warnings;
+  return { ...r, items, warnings, ...(items.length === 0 ? { via: 'none' as const } : {}) };
+}
+
+async function extractRaw(
   kind: SourceKind,
   body: string,
   spec: ExtractSpec,

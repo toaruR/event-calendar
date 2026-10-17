@@ -69,11 +69,17 @@ export function renderSpecEditor(source) {
   return `<form class="spec-editor" data-source-id="${esc(s.id)}" data-expected-version="${esc(s.expected_version ?? s.spec_version)}"><textarea name="spec_json">${esc(spec)}</textarea><button type="submit">save</button></form>`;
 }
 
-// Month grid starting on Sunday; leading blanks are .pad (not .day), so .day count == days in month.
-export function renderMonth(year, month, events) {
+// Month grid; weekStart 'monday' starts on Monday, otherwise Sunday.
+// Leading blanks are .pad (not .day), so .day count == days in month.
+export function renderMonth(year, month, events, weekStart = 'sunday') {
+  const ws = weekStart === 'monday' ? 1 : 0;
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const lead = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  let cells = DOW.map((d, i) => `<div class="dow-head dow${i}">${d}</div>`).join('');
+  const lead = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() - ws + 7) % 7;
+  let cells = '';
+  for (let k = 0; k < 7; k++) {
+    const i = (k + ws) % 7;
+    cells += `<div class="dow-head dow${i}">${DOW[i]}</div>`;
+  }
   for (let i = 0; i < lead; i++) cells += '<div class="pad"></div>';
   for (let d = 1; d <= days; d++) {
     cells += dayCell(`${year}-${p2(month)}-${p2(d)}`, events);

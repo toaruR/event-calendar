@@ -6,6 +6,12 @@ export function readToken(doc) {
   return m ? m.getAttribute('content') || '' : '';
 }
 
+// 'monday' | 'sunday' from the server-embedded <meta name="week-start"> (config week_start).
+export function readWeekStart(doc) {
+  const m = doc.querySelector('meta[name="week-start"]');
+  return m && m.getAttribute('content') === 'monday' ? 'monday' : 'sunday';
+}
+
 export async function api(fetchFn, token, method, path, body) {
   const init = { method, headers: { 'X-GUI-Token': token } };
   if (body !== undefined) {
@@ -35,7 +41,7 @@ export function regionsOf(sources) {
   return [...new Set((sources || []).map((s) => s.region_id).filter(Boolean))].sort();
 }
 
-// view: { year, month, region } — region defaults to the first region that has sources.
+// view: { year, month, region, weekStart } — region defaults to the first region that has sources.
 export async function loadAll(fetchFn, token, root, now = new Date(), view = {}) {
   const [src, health] = await Promise.all([
     api(fetchFn, token, 'GET', '/sources'),
@@ -59,13 +65,13 @@ export async function loadAll(fetchFn, token, root, now = new Date(), view = {})
   const merged = sources.map((s) => ({ ...s, ...(byId.get(s.id) || {}), name: s.name ?? s.url ?? s.id }));
   root.health.innerHTML = renderHealth(merged);
   root.sources.innerHTML = renderSources(sources);
-  root.events.innerHTML = renderMonth(year, month, inMonth);
+  root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart);
   if (root.list) root.list.innerHTML = renderEventList(inMonth);
   if (root.title) root.title.textContent = `${year}年${month}月`;
   if (root.region) {
     root.region.innerHTML = regions.map((r) => `<option${r === region ? ' selected' : ''} value="${esc(r)}">${esc(r)}</option>`).join('');
   }
-  return { sources, events, health: health.sources || [], view: { year, month, region } };
+  return { sources, events, health: health.sources || [], view: { year, month, region, weekStart: view.weekStart } };
 }
 
 if (typeof document !== 'undefined') {
@@ -80,7 +86,8 @@ if (typeof document !== 'undefined') {
   };
   const token = readToken(document);
   const fetchFn = (p, i) => fetch(p, i);
-  let view = {};
+  const weekStart = readWeekStart(document);
+  let view = { weekStart };
   const reload = async () => {
     view = (await loadAll(fetchFn, token, root, new Date(), view)).view;
   };
@@ -92,7 +99,7 @@ if (typeof document !== 'undefined') {
   $('prev').addEventListener('click', () => shift(-1));
   $('next').addEventListener('click', () => shift(1));
   $('today').addEventListener('click', () => {
-    view = { region: view.region };
+    view = { region: view.region, weekStart };
     reload();
   });
   root.region.addEventListener('change', () => {

@@ -66,8 +66,9 @@ export async function updateSource(
     const r = db.prepare('UPDATE source SET spec_version = ?, updated_at = ? WHERE id = ? AND spec_version = ?')
       .run(version, nowIso, sourceId, cur.spec_version);
     if (Number(r.changes) !== 1) throw new AppError('CONFLICT', 'concurrent update', { source_id: sourceId });
+    // spec changed: drop conditional-GET validators so the next run re-extracts instead of 304
     if (b.spec !== undefined) {
-      db.prepare('UPDATE source SET spec_json = ?, kind = ? WHERE id = ?').run(newSpecJson, String(b.spec['kind']), sourceId);
+      db.prepare('UPDATE source SET spec_json = ?, kind = ?, etag = NULL, last_modified = NULL WHERE id = ?').run(newSpecJson, String(b.spec['kind']), sourceId);
     }
     if (b.interval_sec !== undefined) db.prepare('UPDATE source SET interval_sec = ? WHERE id = ?').run(b.interval_sec, sourceId);
     if (b.trust !== undefined) db.prepare('UPDATE source SET trust = ? WHERE id = ?').run(b.trust, sourceId);
@@ -103,7 +104,7 @@ export function rollbackSource(
   const kind = h.spec_json ? (JSON.parse(h.spec_json) as { kind?: string }).kind : undefined;
   db.exec('BEGIN');
   try {
-    db.prepare('UPDATE source SET spec_json = ?, spec_version = ?, updated_at = ? WHERE id = ?')
+    db.prepare('UPDATE source SET spec_json = ?, spec_version = ?, updated_at = ?, etag = NULL, last_modified = NULL WHERE id = ?')
       .run(h.spec_json, next, nowIso, sourceId);
     if (kind) db.prepare('UPDATE source SET kind = ? WHERE id = ?').run(kind, sourceId);
     recordHistory(db, sourceId, next, h.spec_json, `rollback:v${version}`, nowIso);
