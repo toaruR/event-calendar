@@ -4,6 +4,7 @@ import { extractJsonLd } from './jsonld.ts';
 import { extractRss } from './rss.ts';
 import { extractJsonApi } from './json-api.ts';
 import { extractCss } from './css.ts';
+import { extractYahooRealtime } from './yahoo-realtime.ts';
 import type { CssSpec } from './css.ts';
 import { extractWithLlm } from './llm-fallback.ts';
 import type { LlmClient, LlmValidate } from './llm-fallback.ts';
@@ -15,6 +16,8 @@ export type SourceKind = 'ical' | 'rss' | 'jsonld' | 'html' | 'json_api';
 export interface ExtractSpec {
   /** 'content': take the event date from title/description/body instead of the feed/page date; undated items are dropped */
   date_from?: 'published' | 'content';
+  /** html only: site-specific parser used instead of JSON-LD/CSS */
+  parser?: 'yahoo_realtime';
   fetch?: CssSpec['fetch'];
   extract?: CssSpec['extract'] & { llm_fallback?: boolean };
 }
@@ -39,7 +42,7 @@ export interface ExtractDeps {
 
 export interface ExtractOutcome extends ExtractResult {
   /** which extractor produced the items ('none' when empty) */
-  via: 'ical' | 'jsonld' | 'rss' | 'json_api' | 'css' | 'llm' | 'none';
+  via: 'ical' | 'jsonld' | 'rss' | 'json_api' | 'css' | 'llm' | 'yahoo_realtime' | 'none';
   /** structured error from CSS extraction (e.g. INVALID_ARGUMENT) */
   errorCode?: string;
 }
@@ -112,6 +115,7 @@ async function extractRaw(
   else if (kind === 'json_api') hit = take(jsonApi(body), 'json_api');
   else if (kind === 'rss') hit = take(rss(body), 'rss');
   else if (kind === 'jsonld') hit = take(jsonld(body), 'jsonld');
+  else if (kind === 'html' && spec.parser === 'yahoo_realtime') hit = take(extractYahooRealtime(body), 'yahoo_realtime');
   else if (kind === 'html') {
     hit = take(jsonld(body), 'jsonld');
     if (!hit && spec.extract?.item_selector) {

@@ -114,11 +114,25 @@ export function renderEventList(events) {
   return `<table class="event-list"><thead><tr><th>日時</th><th>イベント</th><th>会場</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+// Proposed candidates: checking the box approves (adds) the source; robots-disallowed ones cannot be checked.
+export function renderCandidates(candidates) {
+  const list = candidates || [];
+  if (list.length === 0) return '<p class="empty">候補はありません</p>';
+  const rows = list
+    .map((c) => {
+      const off = c.robots_allowed ? '' : ' disabled';
+      const note = c.robots_allowed ? '' : 'robots.txt で禁止';
+      return `<tr data-id="${esc(c.id)}"><td class="toggle"><label><input type="checkbox" class="approve" data-id="${esc(c.id)}"${off}> 有効</label></td><td>${esc(c.url)}</td><td class="state">${esc(c.kind_guess ?? '')}</td><td class="note">${esc(note)}</td><td><button type="button" class="reject" data-id="${esc(c.id)}">却下</button></td></tr>`;
+    })
+    .join('');
+  return `<table class="health candidates"><tbody>${rows}</tbody></table>`;
+}
+
 export function renderHealth(sources) {
   const rows = (sources || [])
     .map(
       (s) =>
-        `<tr data-id="${esc(s.id)}"><td>${esc(s.name ?? s.id)}</td><td class="state">${esc(s.state)}</td><td>${esc(s.last_error ?? '')}</td></tr>`,
+        `<tr data-id="${esc(s.id)}"><td class="toggle"><label><input type="checkbox" class="enabled" data-id="${esc(s.id)}" data-version="${esc(s.spec_version)}"${s.enabled === false ? '' : ' checked'}> 有効</label></td><td>${esc(s.name ?? s.id)}</td><td class="state">${esc(s.state)}</td><td>${esc(s.last_error ?? '')}</td></tr>`,
     )
     .join('');
   return `<table class="health"><tbody>${rows}</tbody></table>`;

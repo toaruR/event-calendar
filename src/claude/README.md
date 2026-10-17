@@ -82,6 +82,18 @@ node src/daemon.ts --port 18787 --data-dir .event-calendar [--config config.json
 - SIGINT / SIGTERM で停止。Windows では SIGTERM を正常に受けられないため `--stdin-shutdown` を付けると、stdin に `shutdown` を含む行を送るか stdin が EOF になると停止する(`node src/daemon.ts` / `ecd` のみ有効。`ec daemon` では未対応)。
 - `gui_token` は起動ごとに生成する 64 桁 hex(ディスクには書かない)。
 
+### 常駐起動
+
+設定ファイルは `config.sample.json` を `config.json` にコピーして編集する(`config.json` は git 管理外。`brave_api_key` などを書く)。
+
+`scripts/run-daemon.ps1` はデーモンを `--data-dir .event-calendar --config config.json` で起動し、終了したら 10 秒後に再起動する。出力は `.event-calendar/daemon.log`(UTF-8)に追記。stdin を持たない起動形態のため `--stdin-shutdown` は付けない(付けると stdin EOF で即停止)。
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts\run-daemon.ps1
+```
+
+ログオン時に自動起動するにはタスクスケジューラに登録する。停止はタスクの終了(`Stop-ScheduledTask`)後、残った node プロセスを終了する(ラッパーだけ止めると node が残り、node だけ止めるとラッパーが再起動する)。
+
 ## HTTP API
 
 | メソッド | パス |
@@ -95,12 +107,14 @@ node src/daemon.ts --port 18787 --data-dir .event-calendar [--config config.json
 | DELETE | `/sources/{id}` (`dry_run` / `approval_token` は JSON body または query) |
 | POST | `/sources/{id}/run` |
 | POST | `/candidates/{id}/approve` |
+| GET | `/candidates` (query: `region_id`, `status` 既定 `proposed`) |
+| POST | `/candidates/{id}/reject` |
 | POST | `/approvals` |
 | GET | `/events` (query: `region_id`, `from`, `to`, `q`, `source`) |
 | GET | `/calendar/{file}` (ルータ上のパターンは `{file}`。末尾が `.ics` のときだけ有効で、`{file}` から `.ics` を除いた部分が region id。`.ics` で終わらないと NOT_FOUND 404。例: `/calendar/r1.ics`。query: `from`, `to`(ISO 日時、`from` > `to` や不正値は INVALID_ARGUMENT)。既定は now-90日〜now+365日。`Content-Type: text/calendar; charset=utf-8` と `ETag`、`If-None-Match`(`*` 可)一致で 304) |
 | GET | `/health` |
 
-上記 13 ルートに加え静的配信 `GET /` と `GET /gui/*`(`gui/` 配下のファイルのみ。パストラバーサルは INVALID_ARGUMENT)。ルートはこれ以外に無い。リクエスト body は最大 1 MiB の JSON。
+上記 15 ルートに加え静的配信 `GET /` と `GET /gui/*`(`gui/` 配下のファイルのみ。パストラバーサルは INVALID_ARGUMENT)。ルートはこれ以外に無い。リクエスト body は最大 1 MiB の JSON。
 
 ### 認証 (X-GUI-Token)
 
@@ -111,6 +125,22 @@ node src/daemon.ts --port 18787 --data-dir .event-calendar [--config config.json
 ## GUI
 
 `gui/` の静的ファイル(`index.html`, `app.js`, `render.js`)。ブラウザで `http://127.0.0.1:18787/` を開く。週の開始曜日は設定 `week_start`(`"sunday"` / `"monday"`)で切り替え、デーモンが `index.html` の `<meta name="week-start">` に埋め込む。例: `{"week_start": "monday"}` を `--config` で渡す。`app.js` が meta から token を読み、`X-GUI-Token` 付きで `GET /sources`, `/events`, `/health` を呼び、ヘルス・ソース一覧・月表示のイベントを描画する。ソース更新用に `PATCH /sources/{id}` (`spec` + `expected_version`) 呼び出し関数も持つ。
+
+「ソース状態」の各行のチェックボックス「有効」で `PATCH /sources/{id}` (`enabled` + `expected_version`) を送り、ソースを有効/無効に切り替える(無効は `disabled`、取得済みイベントは残る)。その下の「候補」には `GET /candidates` の提案中候補を並べ、チェックで `POST /candidates/{id}/approve`(`terms_note: "GUIで承認"`, `allow_redistribute: false` = ICS 出力対象外)、「却下」で `POST /candidates/{id}/reject`。承認時は試し取得し、0 件なら ZERO_ITEMS で追加されない。robots.txt で禁止の候補はチェック不可。
+
+## クロール先の自動探索
+
+`search_providers` を設定するとデーモンが地域ごとに `discover_interval_sec`(既定 1 日)おきに検索し、見つかった URL を候補(`proposed`)として記録する。クロールは GUI で承認したものだけ。最終探索時刻は `discover_run` テーブルにあり、再起動で再検索しない。登録済み URL と却下済み候補は再提案しない。
+
+| 検索先 | 設定 | 備考 |
+|---|---|---|
+| Brave Search API | `"brave"` + `brave_api_key` | キー未設定ならスキップ |
+| DuckDuckGo | `"duckduckgo"` | `html.duckduckgo.com`。ボット確認画面が出たら 6 時間休止(突破はしない) |
+| Yahoo! リアルタイム検索(X 投稿) | `"x_search": true` | 地域ごとに 1 件の候補 `kind:"html", parser:"yahoo_realtime", date_from:"content"`。投稿本文の日付を開催日にし、日付なしは捨てる。タイムラインから消えても取消扱いにしない |
+
+Bing は robots.txt が `/search` を禁止しているため非対応。
+
+`"jina_fallback": true` で、`html` / `jsonld` ソースの取得が通信エラー・5xx のとき、または取得できたが 0 件のとき(JS 描画ページなど)に `jina_base`(既定 `https://r.jina.ai/`)+ URL を `X-Return-Format: html` で取り直す。robots.txt 禁止・ログイン/CAPTCHA・4xx・429 では使わない。対象 URL は外部サービス(jina)に送られる。
 
 ## ソース spec: 記事日付と開催日 (`date_from`)
 
@@ -138,6 +168,14 @@ spec を更新すると ETag / Last-Modified はクリアされ、次回実行�
 | redirect_max | 5 |
 | max_pages | 5 |
 | max_pages_limit | 20 |
+| search_providers | [] |
+| brave_api_key | "" |
+| x_search | false |
+| x_search_base | https://search.yahoo.co.jp/realtime/search |
+| discover_interval_sec | 86400 |
+| discover_limit | 10 |
+| jina_fallback | false |
+| jina_base | https://r.jina.ai/ |
 | degraded_after | 3 |
 | quarantine_after | 10 |
 | drift_ratio | 0.8 |

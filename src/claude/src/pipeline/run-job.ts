@@ -13,6 +13,7 @@ import { sanitizeText } from '../normalize/sanitize.ts';
 import { passesMinConfidence, regionConfidence } from '../normalize/region.ts';
 import type { RegionPolicy } from '../normalize/region.ts';
 import { fetchStage } from './fetch-stage.ts';
+import { fetchViaJina, isReadFailure, jinaApplies } from '../net/jina.ts';
 import type { FetchStageDeps } from './fetch-stage.ts';
 
 export interface SourceRow {
@@ -156,6 +157,7 @@ async function runJobCore(args: RunJobArgs): Promise<RunJobResult> {
 
   let res: FetchResult;
   let validators: { etag: string | null; lastModified: string | null } | null = null;
+  let viaJina = false;
   if (net) {
     const cond = db.prepare('SELECT etag, last_modified FROM source WHERE id = ?').get(source.id) as
       | { etag: string | null; last_modified: string | null } | undefined;
@@ -174,7 +176,13 @@ async function runJobCore(args: RunJobArgs): Promise<RunJobResult> {
       case 'robots_deferred': return stop('failed', null, fr.error);
       case 'login_or_captcha': return stop('login_or_captcha', fr.status, fr.error);
       case 'rate_limited': return stop('rate_limited', fr.status, fr.error, fr.retryAfterSec !== null ? { retryAfterSec: fr.retryAfterSec } : {});
-      case 'failed': return stop('failed', fr.status || null, fr.error);
+      case 'failed': {
+        const text = jinaApplies(source.kind, config) && isReadFailure(fr.status) ? await fetchViaJina(source.url, net, config) : null;
+        if (text === null) return stop('failed', fr.status || null, fr.error);
+        res = { status: 200, text };
+        viaJina = true;
+        break;
+      }
       case 'ok': res = { status: fr.status, text: fr.text }; validators = { etag: fr.etag, lastModified: fr.lastModified }; break;
     }
   } else {
@@ -197,6 +205,14 @@ async function runJobCore(args: RunJobArgs): Promise<RunJobResult> {
   let ex: ExtractResult;
   try {
     ex = await runExtract(source.kind as SourceKind, res.text, spec, { now, config, baseUrl: source.url, fetchPage });
+    // 0 items from a page that was read (e.g. JS-rendered): one retry on the jina-rendered HTML
+    if (ex.items.length === 0 && net && !viaJina && jinaApplies(source.kind, config)) {
+      const text = await fetchViaJina(source.url, net, config);
+      if (text !== null) {
+        const ex2 = await runExtract(source.kind as SourceKind, text, spec, { now, config, baseUrl: source.url, fetchPage });
+        if (ex2.items.length > 0) { ex = ex2; validators = null; }
+      }
+    }
   } catch (e) { return fail(res.status, 0, (e as Error).message); }
   const found = ex.items.length;
   if (ex.error && found === 0) return fail(res.status, 0, ex.error);
@@ -241,7 +257,8 @@ async function runJobCore(args: RunJobArgs): Promise<RunJobResult> {
   try {
     for (const item of ex.items) upsert(item);
     if (!ex.error) {
-      applyDisappearance(db, source.id, ex.items.map((i) => i.source_uid), now, config);
+      // a post timeline only shows the latest posts: falling off it does not mean the event was cancelled
+      if (spec.parser !== 'yahoo_realtime') applyDisappearance(db, source.id, ex.items.map((i) => i.source_uid), now, config);
       recordItemCount(db, source.id, found);
     }
     if (validators) {

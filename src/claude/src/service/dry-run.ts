@@ -5,6 +5,7 @@ import { assertUrlAllowed } from '../net/ssrf.ts';
 import { fetchSafe } from '../net/fetcher.ts';
 import { RobotsCache, checkRobots } from '../net/robots.ts';
 import { fetchStage } from '../pipeline/fetch-stage.ts';
+import { fetchViaJina, isReadFailure, jinaApplies } from '../net/jina.ts';
 import type { FetchStageDeps } from '../pipeline/fetch-stage.ts';
 import { parseWhen } from '../pipeline/run-job.ts';
 import { extract as runExtract } from '../extract/index.ts';
@@ -80,20 +81,32 @@ export async function dryRun(url: string, spec: Record<string, unknown> | undefi
     return { ok: false, samples: [], warnings: ['blocked by robots.txt'], item_count: 0, robots_allowed: false, spec: spec ?? {} };
   }
 
+  const warnings: string[] = [];
+  // no spec yet: a page body guesses to 'jsonld', so treat it as such for the jina retry
+  const kindHint = String(spec?.['kind'] ?? 'jsonld');
   const fr = await fetchStage(url, undefined, net);
-  if (fr.kind !== 'ok') {
+  let body: string;
+  let viaJina = false;
+  if (fr.kind === 'ok') body = fr.text;
+  else {
     if (fr.kind === 'blocked_robots') {
       return { ok: false, samples: [], warnings: ['blocked by robots.txt'], item_count: 0, robots_allowed: false, spec: spec ?? {} };
     }
-    const msg = 'error' in fr ? fr.error : fr.kind;
-    throw new AppError('FETCH_FAILED', `fetch failed: ${msg}`, { kind: fr.kind });
+    const text = fr.kind === 'failed' && isReadFailure(fr.status) && jinaApplies(kindHint, config)
+      ? await fetchViaJina(url, net, config) : null;
+    if (text === null) {
+      const msg = 'error' in fr ? fr.error : fr.kind;
+      throw new AppError('FETCH_FAILED', `fetch failed: ${msg}`, { kind: fr.kind });
+    }
+    body = text;
+    viaJina = true;
+    warnings.push('read via jina');
   }
 
-  const usedSpec: Record<string, unknown> = spec ?? { kind: guessKind(fr.text), region_policy: { mode: 'trust_source' } };
+  const usedSpec: Record<string, unknown> = spec ?? { kind: guessKind(body), region_policy: { mode: 'trust_source' } };
   const kind = String(usedSpec['kind']);
   if (!KINDS.has(kind)) throw new AppError('INVALID_ARGUMENT', `unsupported source kind: ${kind}`, { kind });
   const exSpec = usedSpec as ExtractSpec & { region_policy?: RegionPolicy; extract?: { default_tz?: string } };
-  const warnings: string[] = [];
 
   const fetchPage = async (u: string): Promise<string> => {
     const r = await fetchStage(u, undefined, net);
@@ -102,7 +115,12 @@ export async function dryRun(url: string, spec: Record<string, unknown> | undefi
   };
   let ex;
   try {
-    ex = await runExtract(kind as SourceKind, fr.text, exSpec, { now, config, baseUrl: url, fetchPage });
+    ex = await runExtract(kind as SourceKind, body, exSpec, { now, config, baseUrl: url, fetchPage });
+    if (ex.items.length === 0 && !viaJina && jinaApplies(kind, config)) {
+      const text = await fetchViaJina(url, net, config);
+      const ex2 = text === null ? null : await runExtract(kind as SourceKind, text, exSpec, { now, config, baseUrl: url, fetchPage });
+      if (ex2 && ex2.items.length > 0) { ex = ex2; warnings.push('read via jina'); }
+    }
   } catch (e) {
     warnings.push(`extract failed: ${(e as Error).message}`);
     return { ok: false, samples: [], warnings, item_count: 0, robots_allowed: true, spec: usedSpec };

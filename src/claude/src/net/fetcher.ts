@@ -25,6 +25,8 @@ export interface FetchSafeOptions {
   conditional?: Conditional;
   resolve?: Resolver;
   config?: Partial<Config>;
+  /** extra request headers (e.g. API key, jina X-Return-Format) */
+  headers?: Record<string, string>;
 }
 
 export interface FetchSafeResult {
@@ -63,6 +65,7 @@ export async function fetchSafe(url: string, opts: FetchSafeOptions = {}): Promi
   const headers: Record<string, string> = {
     'user-agent': `event-calendar-bot/0.1 (+${cfg.contact_url})`,
     accept: 'text/html,application/xhtml+xml,application/json,text/calendar,*/*;q=0.5',
+    ...opts.headers,
   };
   if (opts.conditional?.etag) headers['if-none-match'] = opts.conditional.etag;
   if (opts.conditional?.lastModified) headers['if-modified-since'] = opts.conditional.lastModified;

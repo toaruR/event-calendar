@@ -1,7 +1,7 @@
 import { upsertRegion } from '../service/regions.ts';
 import { approveCandidate } from '../service/sources.ts';
 import { issueApproval } from '../service/approvals.ts';
-import { discoverSources } from '../service/discover.ts';
+import { discoverSources, listCandidates, rejectCandidate } from '../service/discover.ts';
 import { validateInput } from '../validate.ts';
 import type { Router } from './server.ts';
 
@@ -21,6 +21,14 @@ export function registerAdminRoutes(r: Router): void {
   r.add('POST', '/candidates/{id}/approve', async ({ core, params, body }) => {
     return { body: await approveCandidate(core.db, params['id']!, await body(), core.deps) };
   });
+
+  r.add('GET', '/candidates', ({ core, query }) => {
+    const region = query.get('region_id');
+    const status = query.get('status');
+    return { body: listCandidates(core.db, { ...(region !== null ? { region_id: region } : {}), ...(status !== null ? { status } : {}) }) };
+  });
+
+  r.add('POST', '/candidates/{id}/reject', ({ core, params }) => ({ body: rejectCandidate(core.db, params['id']!) }));
 
   r.add('POST', '/regions/{id}/discover', async ({ core, params, body }) => {
     const b = validateInput('source_discover', await body()) as { limit?: number };

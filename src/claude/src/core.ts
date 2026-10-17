@@ -13,6 +13,8 @@ import type { Worker } from './jobs/worker.ts';
 import { createServer } from './http/server.ts';
 import type { Core, HttpCore } from './http/server.ts';
 import type { Rand } from './net/backoff.ts';
+import { discoverDue } from './service/discover.ts';
+import { buildSearchProvider } from './service/search-providers.ts';
 
 export interface CoreDeps {
   clock?: Clock;
@@ -27,6 +29,8 @@ export interface CoreDeps {
   worker?: boolean;
   /** worker periodic loop (false = drive manually via handle.worker.tick()). Default true. */
   autoRun?: boolean;
+  /** periodic discover loop (config.discover_interval_sec). Default: same as worker. */
+  discover?: boolean;
 }
 
 export interface DispatchResult { status: number; body?: unknown; raw?: string; headers?: Record<string, string> }
@@ -56,13 +60,14 @@ export function createCore(db: DatabaseSync, config: Config = defaultConfig(), d
     config: { ssrf_allowlist: config.ssrf_allowlist },
   };
   const sourceDeps: SourceDeps = { net, config };
-  const core: Core = { db, deps: sourceDeps, ...(deps.searchProvider ? { searchProvider: deps.searchProvider } : {}) };
+  const core: Core = { db, deps: sourceDeps, searchProvider: deps.searchProvider ?? buildSearchProvider(config, net) };
   const http = createServer(core, {
     ...(deps.port !== undefined ? { port: deps.port } : {}),
     ...(deps.host !== undefined ? { host: deps.host } : {}),
     ...(deps.token !== undefined ? { token: deps.token } : {}),
   });
   let worker: Worker | null = null;
+  let discoverStopped = false;
 
   const handle: CoreHandle = {
     core, http,
@@ -74,9 +79,26 @@ export function createCore(db: DatabaseSync, config: Config = defaultConfig(), d
           ...(deps.autoRun !== undefined ? { autoRun: deps.autoRun } : {}),
         });
       }
+      if ((deps.discover ?? (deps.worker !== false && deps.autoRun !== false)) && config.discover_interval_sec > 0
+        && (core.searchProvider !== 'none' || config.x_search)) {
+        // checks hourly; discover_run decides which regions are due
+        void (async () => {
+          while (!discoverStopped) {
+            try {
+              for (const r of await discoverDue(db, core.searchProvider ?? 'none', sourceDeps)) {
+                if (r.error) process.stderr.write(`warn: discover ${r.region_id} failed: ${r.error}
+`);
+              }
+            } catch (e) { process.stderr.write(`warn: discover loop: ${e instanceof Error ? e.message : String(e)}
+`); }
+            await clock.sleep(Math.min(config.discover_interval_sec, 3600) * 1000);
+          }
+        })();
+      }
       await http.start();
     },
     async stop() {
+      discoverStopped = true;
       worker?.stop();
       await http.stop();
     },

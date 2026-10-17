@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS source_candidate (
   status TEXT NOT NULL CHECK (status IN ('proposed','approved','rejected')),
   found_at TEXT
 );
+CREATE TABLE IF NOT EXISTS discover_run (
+  region_id TEXT PRIMARY KEY REFERENCES region(id),
+  last_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS event (
   id TEXT PRIMARY KEY,
   region_id TEXT NOT NULL REFERENCES region(id),

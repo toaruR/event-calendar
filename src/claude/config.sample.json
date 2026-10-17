@@ -1,0 +1,7 @@
+{
+  "week_start": "monday",
+  "search_providers": ["brave", "duckduckgo"],
+  "brave_api_key": "",
+  "x_search": true,
+  "jina_fallback": true
+}

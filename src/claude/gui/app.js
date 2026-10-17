@@ -1,5 +1,5 @@
 // GUI app: same-origin calls to the HTTP API with X-GUI-Token, rendered via render.js.
-import { esc, renderSources, renderHealth, renderMonth, renderEventList } from './render.js';
+import { esc, renderSources, renderHealth, renderCandidates, renderMonth, renderEventList } from './render.js';
 
 export function readToken(doc) {
   const m = doc.querySelector('meta[name="gui-token"]');
@@ -30,6 +30,26 @@ export function patchSpec(fetchFn, token, id, spec, expectedVersion) {
   });
 }
 
+// Enable/disable toggle: PATCH enabled with expected_version (bumps spec_version).
+export function patchEnabled(fetchFn, token, id, enabled, expectedVersion) {
+  return api(fetchFn, token, 'PATCH', `/sources/${encodeURIComponent(id)}`, {
+    enabled,
+    expected_version: expectedVersion,
+  });
+}
+
+// Candidate approval from the GUI: no redistribution (excluded from ICS export).
+export function approveCandidate(fetchFn, token, id) {
+  return api(fetchFn, token, 'POST', `/candidates/${encodeURIComponent(id)}/approve`, {
+    terms_note: 'GUIで承認',
+    allow_redistribute: false,
+  });
+}
+
+export function rejectCandidate(fetchFn, token, id) {
+  return api(fetchFn, token, 'POST', `/candidates/${encodeURIComponent(id)}/reject`, {});
+}
+
 // Query window for a month: one day of slack on each side covers tz offsets.
 export function monthRange(year, month) {
   const from = new Date(Date.UTC(year, month - 1, 1) - 86400000).toISOString();
@@ -43,9 +63,10 @@ export function regionsOf(sources) {
 
 // view: { year, month, region, weekStart } — region defaults to the first region that has sources.
 export async function loadAll(fetchFn, token, root, now = new Date(), view = {}) {
-  const [src, health] = await Promise.all([
+  const [src, health, cand] = await Promise.all([
     api(fetchFn, token, 'GET', '/sources'),
     api(fetchFn, token, 'GET', '/health'),
+    api(fetchFn, token, 'GET', '/candidates'),
   ]);
   const sources = src.sources || [];
   const regions = regionsOf(sources);
@@ -65,6 +86,7 @@ export async function loadAll(fetchFn, token, root, now = new Date(), view = {})
   const merged = sources.map((s) => ({ ...s, ...(byId.get(s.id) || {}), name: s.name ?? s.url ?? s.id }));
   root.health.innerHTML = renderHealth(merged);
   root.sources.innerHTML = renderSources(sources);
+  if (root.candidates) root.candidates.innerHTML = renderCandidates(cand.candidates);
   root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart);
   if (root.list) root.list.innerHTML = renderEventList(inMonth);
   if (root.title) root.title.textContent = `${year}年${month}月`;
@@ -83,6 +105,8 @@ if (typeof document !== 'undefined') {
     list: $('event-list'),
     title: $('month-title'),
     region: $('region'),
+    candidates: $('candidates'),
+    message: $('candidate-message'),
   };
   const token = readToken(document);
   const fetchFn = (p, i) => fetch(p, i);
@@ -100,6 +124,31 @@ if (typeof document !== 'undefined') {
   $('next').addEventListener('click', () => shift(1));
   $('today').addEventListener('click', () => {
     view = { region: view.region, weekStart };
+    reload();
+  });
+  root.health.addEventListener('change', async (ev) => {
+    const el = ev.target;
+    if (!el.classList || !el.classList.contains('enabled')) return;
+    el.disabled = true;
+    const r = await patchEnabled(fetchFn, token, el.dataset.id, el.checked, Number(el.dataset.version));
+    if (r.error) console.error('source toggle failed', r.error);
+    reload();
+  });
+  root.candidates.addEventListener('change', async (ev) => {
+    const el = ev.target;
+    if (!el.classList || !el.classList.contains('approve') || !el.checked) return;
+    el.disabled = true;
+    root.message.textContent = '試し取得して追加しています…';
+    const r = await approveCandidate(fetchFn, token, el.dataset.id);
+    root.message.textContent = r.error ? `追加できませんでした: ${r.error.code} ${r.error.message}` : '';
+    reload();
+  });
+  root.candidates.addEventListener('click', async (ev) => {
+    const el = ev.target;
+    if (!el.classList || !el.classList.contains('reject')) return;
+    el.disabled = true;
+    const r = await rejectCandidate(fetchFn, token, el.dataset.id);
+    root.message.textContent = r.error ? `却下できませんでした: ${r.error.code} ${r.error.message}` : '';
     reload();
   });
   root.region.addEventListener('change', () => {

@@ -4,11 +4,13 @@ export const SOURCE_SPEC_SCHEMA = {
   type: 'object',
   required: ['kind', 'region_policy'],
   additionalProperties: false,
-  if: { properties: { kind: { const: 'html' } }, required: ['kind'] },
+  if: { properties: { kind: { const: 'html' } }, required: ['kind'], not: { required: ['parser'] } },
   then: { required: ['extract'] },
   properties: {
     kind: { enum: ['ical', 'rss', 'jsonld', 'html', 'json_api'] },
     date_from: { enum: ['published', 'content'] },
+    /** html only: site-specific parser instead of extract (no item_selector needed) */
+    parser: { enum: ['yahoo_realtime'] },
     fetch: {
       type: 'object',
       properties: {

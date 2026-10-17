@@ -16,7 +16,7 @@ before(async () => {
 });
 after(async () => { await s.stop(); });
 
-// Design section 5.4: the 13 API routes (method + path pattern as registered in the router)
+// Design section 5.4: the 13 API routes + candidate list/reject for the GUI (method + path pattern as registered in the router)
 const SECTION_5_4: string[] = [
   'PUT /regions/{id}',
   'POST /regions/{id}/discover',
@@ -27,17 +27,19 @@ const SECTION_5_4: string[] = [
   'DELETE /sources/{id}',
   'POST /sources/{id}/run',
   'POST /candidates/{id}/approve',
+  'GET /candidates',
+  'POST /candidates/{id}/reject',
   'POST /approvals',
   'GET /events',
   'GET /calendar/{file}',
   'GET /health',
 ];
 
-test('out-of-scope: server routes == 13 section-5.4 routes + static (GET /, GET /gui/*), no extras', async () => {
+test('out-of-scope: server routes == 15 (section-5.4 + candidates) routes + static (GET /, GET /gui/*), no extras', async () => {
   const actual = s.h.router.routes.map((r) => `${r.method} /${r.segs.join('/')}`);
   assert.equal(new Set(actual).size, actual.length, 'no duplicate routes');
   assert.deepEqual([...actual].sort(), [...SECTION_5_4].sort());
-  assert.equal(actual.length, 13);
+  assert.equal(actual.length, 15);
 
   // static delivery is handled outside the router: exactly "/" and "/gui/*"
   assert.equal(isStaticPath('/'), true);
@@ -46,7 +48,7 @@ test('out-of-scope: server routes == 13 section-5.4 routes + static (GET /, GET 
 
   const full = [...actual, 'GET /', 'GET /gui/*'].sort();
   assert.deepEqual(full, [...SECTION_5_4, 'GET /', 'GET /gui/*'].sort());
-  assert.equal(full.length, 15);
+  assert.equal(full.length, 17);
 
   // and the static routes really are served: GET / and an existing GUI file
   const guiDir = fileURLToPath(new URL('../../gui/', import.meta.url));

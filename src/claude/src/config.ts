@@ -5,6 +5,8 @@ export interface HostRate { requests: number; per_sec: number }
 export interface RetryBackoff { base_sec: number; cap_sec: number; jitter: number; max_attempts: number }
 
 export type WeekStart = 'sunday' | 'monday';
+export type SearchProviderName = 'brave' | 'duckduckgo';
+const SEARCH_PROVIDERS: readonly string[] = ['brave', 'duckduckgo'];
 
 export interface Config {
   interval_sec: number;
@@ -37,6 +39,18 @@ export interface Config {
   listen: string;
   busy_timeout: number;
   search_provider: string;
+  /** site-discovery search engines, tried in order: 'brave' (needs brave_api_key) | 'duckduckgo' */
+  search_providers: SearchProviderName[];
+  brave_api_key: string;
+  /** also propose a Yahoo! realtime (X post) search source per region on discover */
+  x_search: boolean;
+  x_search_base: string;
+  /** periodic discover per region (seconds); 0 = never */
+  discover_interval_sec: number;
+  discover_limit: number;
+  /** retry html/jsonld pages that failed (network/5xx) or yielded 0 items via jina_base + url */
+  jina_fallback: boolean;
+  jina_base: string;
   geocoder: string;
   redact_contact: boolean;
   ssrf_allowlist: string[];
@@ -83,6 +97,14 @@ export function defaultConfig(): Config {
     listen: '127.0.0.1:18787',
     busy_timeout: 5000,
     search_provider: 'none',
+    search_providers: [],
+    brave_api_key: '',
+    x_search: false,
+    x_search_base: 'https://search.yahoo.co.jp/realtime/search',
+    discover_interval_sec: 86400,
+    discover_limit: 10,
+    jina_fallback: false,
+    jina_base: 'https://r.jina.ai/',
     geocoder: 'none',
     redact_contact: true,
     ssrf_allowlist: [],
@@ -139,5 +161,9 @@ export function loadConfigFile(path: string): Config {
   }
   const ws = (json as Record<string, unknown>)['week_start'];
   if (ws !== undefined && ws !== 'sunday' && ws !== 'monday') throw bad('week_start must be "sunday" or "monday"', { week_start: ws });
+  const sp = (json as Record<string, unknown>)['search_providers'];
+  if (sp !== undefined && (!Array.isArray(sp) || sp.some((v) => typeof v !== 'string' || !SEARCH_PROVIDERS.includes(v)))) {
+    throw bad(`search_providers must be an array of ${SEARCH_PROVIDERS.join(' | ')}`, { search_providers: sp });
+  }
   return loadConfig(json as Partial<Config>);
 }
