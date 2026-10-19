@@ -87,7 +87,7 @@ export async function loadAll(fetchFn, token, root, now = new Date(), view = {})
   root.health.innerHTML = renderHealth(merged);
   root.sources.innerHTML = renderSources(sources);
   if (root.candidates) root.candidates.innerHTML = renderCandidates(cand.candidates);
-  root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart);
+  root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart, now);
   if (root.list) root.list.innerHTML = renderEventList(inMonth);
   if (root.title) root.title.textContent = `${year}年${month}月`;
   if (root.region) {
