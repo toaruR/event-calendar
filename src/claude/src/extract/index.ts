@@ -16,6 +16,8 @@ export type SourceKind = 'ical' | 'rss' | 'jsonld' | 'html' | 'json_api';
 export interface ExtractSpec {
   /** 'content': take the event date from title/description/body instead of the feed/page date; undated items are dropped */
   date_from?: 'published' | 'content';
+  /** keep only items whose title/description/body contains one of these (e.g. 開催, 実施) */
+  include_keywords?: string[];
   /** html only: site-specific parser used instead of JSON-LD/CSS */
   parser?: 'yahoo_realtime';
   fetch?: CssSpec['fetch'];
@@ -79,10 +81,21 @@ export async function extract(
   spec: ExtractSpec,
   deps: ExtractDeps,
 ): Promise<ExtractOutcome> {
-  const r = await extractRaw(kind, body, spec, deps);
+  const raw = await extractRaw(kind, body, spec, deps);
+  const r = filterKeywords(raw, spec.include_keywords);
   if (spec.date_from !== 'content' || r.items.length === 0) return r;
   const { items, dropped } = applyContentDates(r.items, deps);
   const warnings = dropped > 0 ? [...r.warnings, `${dropped} item(s) without event date in content dropped`] : r.warnings;
+  return { ...r, items, warnings, ...(items.length === 0 ? { via: 'none' as const } : {}) };
+}
+
+function filterKeywords(r: ExtractOutcome, keywords: string[] | undefined): ExtractOutcome {
+  if (!keywords || keywords.length === 0 || r.items.length === 0) return r;
+  const items = r.items.filter((it) =>
+    [it.title, it.description, it.content].some((t) => t && keywords.some((k) => t.includes(k))));
+  const dropped = r.items.length - items.length;
+  if (dropped === 0) return r;
+  const warnings = [...r.warnings, `${dropped} item(s) without include_keywords dropped`];
   return { ...r, items, warnings, ...(items.length === 0 ? { via: 'none' as const } : {}) };
 }
 

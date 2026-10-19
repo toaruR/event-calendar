@@ -146,6 +146,14 @@ Bing は robots.txt が `/search` を禁止しているため非対応。
 
 ニュース系 RSS の pubDate は記事の公開日で、開催日ではない。spec に `"date_from": "content"` を指定すると、タイトル→概要→本文(`content:encoded`)の順に最初の和文日付(`令和8年11月14日(土)`, `2026年11月14日`, `10月18日開催`, `11月14日 10:30`, `10月18日〜19日` など)を開催日として使う。年なしの日付は公開日を基準に年を推定する。開催日が見つからない記事は取り込まない(warning に件数)。既定は `"published"`(従来どおり)。
 
+完全な `M月D日` がどこにも無いときは、新聞式の月なし表記(`24、25日は…`, `18日午前5時半`)を公開日(JST)の年月で読む。`D、D+1日` は2日間の範囲になる。`3日間`・`1日現在`・`7日以内` などは日付として扱わない。
+
+ニュース全般のフィードは `"include_keywords": ["開催", "実施", ...]` で、タイトル/概要/本文にいずれかの語を含む記事だけに絞れる(落とした件数は warning に出る)。例: 埼玉新聞(Yahoo!ニュース配信)
+
+```
+ec source add --url https://news.yahoo.co.jp/rss/media/saitama/all.xml --spec '{"kind":"rss","date_from":"content","include_keywords":["開催","実施","催し","イベント","フェスティバル","まつり","祭り","展示","公演","コンサート","参加者を募集","入場無料"],"region_policy":{"mode":"trust_source"}}'
+```
+
 ```
 ec source update --id <id> --expected_version <v> --spec '{"kind":"rss","date_from":"content","region_policy":{"mode":"trust_source"}}'
 ```

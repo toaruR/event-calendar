@@ -90,6 +90,7 @@ INDEX event(region_id, start_utc); INDEX event(dedup_key)
  "if":{"properties":{"kind":{"const":"html"}}},"then":{"required":["extract"]},"properties":{
  "kind":{"enum":["ical","rss","jsonld","html","json_api"]},
  "date_from":{"enum":["published","content"]},
+ "include_keywords":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},
  "fetch":{"type":"object","properties":{"render":{"enum":["none","browser"]},
    "headers":{"type":"object"},"paging":{"type":"object","properties":{"type":{"enum":["next_link"]},
    "selector":{"type":"string"},"max_pages":{"type":"integer","minimum":1}}}}},
@@ -103,7 +104,8 @@ INDEX event(region_id, start_utc); INDEX event(dedup_key)
    "min_confidence":{"type":"number","minimum":0,"maximum":1}}}}}
 ```
 `kind=html` のとき `extract` 必須(if/then)。他kindは標準マッピング。max_pagesの既定・上限は§4。
-`date_from`(既定 `published`): `content` のとき、フィード/ページの日付(RSS の pubDate 等=記事公開日)ではなく、タイトル→概要→本文(RSS `content:encoded`)の順に最初に現れる和文の日付(`令和N年`/`YYYY年`/年なし `M月D日`、曜日・時刻・`〜D日` の範囲を含む)を開催日とする。年なしは公開日基準で年を推定。開催日が見つからない記事は取り込まない。
+`date_from`(既定 `published`): `content` のとき、フィード/ページの日付(RSS の pubDate 等=記事公開日)ではなく、タイトル→概要→本文(RSS `content:encoded`)の順に最初に現れる和文の日付(`令和N年`/`YYYY年`/年なし `M月D日`、曜日・時刻・`〜D日` の範囲を含む)を開催日とする。年なしは公開日基準で年を推定。完全な `M月D日` が無いときは月なしの `D日`(`24、25日` 等)を公開日の JST 年月で読む。開催日が見つからない記事は取り込まない。
+`include_keywords`(string[]): 指定時、タイトル/概要/本文にいずれかの語を含む項目だけを残す(`date_from` 処理の前)。
 
 ### 5.2 出力型 (JSON Schema 2020-12)
 ```json

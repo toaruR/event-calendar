@@ -9,6 +9,8 @@ export const SOURCE_SPEC_SCHEMA = {
   properties: {
     kind: { enum: ['ical', 'rss', 'jsonld', 'html', 'json_api'] },
     date_from: { enum: ['published', 'content'] },
+    /** keep only items mentioning one of these words (title/description/body) */
+    include_keywords: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
     /** html only: site-specific parser instead of extract (no item_selector needed) */
     parser: { enum: ['yahoo_realtime'] },
     fetch: {
