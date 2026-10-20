@@ -45,6 +45,7 @@
   .health .state, .health .toggle { white-space: nowrap; }
   .sources { color: var(--muted); }
   .note { color: var(--muted); font-size: .82rem; }
+  .note.error { color: #b91c1c; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -55,6 +56,7 @@
   <h2 id="month-title"></h2>
   <button id="next" type="button">翌月 &gt;</button>
   <button id="today" type="button">今月</button>
+  <button id="ics" type="button" title="表示中の月の予定をICSで保存し、Googleカレンダーのインポート画面を開く">ICS</button>
 </div>
 <section id="events"></section>
 <h3>イベント一覧</h3>
@@ -64,7 +66,8 @@
   <section id="health"></section>
   <section id="sources"></section>
   <h3>候補（チェックで追加）</h3>
-  <p id="candidate-message" class="note"></p>
+  <p class="note">試し取得に成功するとソースへ追加されます。失敗した場合は行に理由が表示されます。</p>
+  <p id="candidate-message" class="note" role="status"></p>
   <section id="candidates"></section>
 </details>
 <script type="module" src="/gui/app.js"></script>

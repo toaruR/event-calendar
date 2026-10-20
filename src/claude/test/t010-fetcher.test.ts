@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fetchSafe } from '../src/net/fetcher.ts';
+import { fetchSafe, looksLikeLoginOrCaptcha } from '../src/net/fetcher.ts';
 import { startMockServer } from './helpers/mock-server.ts';
 
 const blocked = (e: any) => e.code === 'SSRF_BLOCKED';
@@ -91,5 +91,25 @@ test('captcha page aborts with login_or_captcha', async () => {
     const r = await fetchSafe(`${s.base}/cap`, { config: allow });
     assert.equal(r.outcomeHint, 'login_or_captcha');
     assert.equal(r.body, '');
+  } finally { await s.close(); }
+});
+
+test('public content with background reCAPTCHA scripts is readable; actual gates remain blocked', async () => {
+  const publicPage = '<main><h1>イベント一覧</h1></main><script id="google-recaptcha-js" src="https://www.google.com/recaptcha/api.js"></script><script>var wpcf7_recaptcha = {};</script>';
+  assert.equal(looksLikeLoginOrCaptcha(publicPage), false);
+  for (const gate of [
+    '<div class="g-recaptcha" data-sitekey="x"></div>',
+    '<div class="h-captcha"></div>',
+    '<div class="cf-turnstile"></div>',
+    '<form><input type="password"></form>',
+    '<h1>Please verify you are human</h1>',
+    '<script src="/cdn-cgi/challenge-platform/x"></script>',
+  ]) assert.equal(looksLikeLoginOrCaptcha(gate), true, gate);
+  const s = await startMockServer();
+  try {
+    s.text('/public', publicPage);
+    const r = await fetchSafe(`${s.base}/public`, { config: allow });
+    assert.equal(r.outcomeHint, 'ok');
+    assert.equal(r.body, publicPage);
   } finally { await s.close(); }
 });

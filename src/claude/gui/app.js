@@ -50,12 +50,73 @@ export function rejectCandidate(fetchFn, token, id) {
   return api(fetchFn, token, 'POST', `/candidates/${encodeURIComponent(id)}/reject`, {});
 }
 
+function candidateError(error) {
+  const detail = error.message || String(error);
+  if (error.code === 'ZERO_ITEMS') return 'イベントを抽出できませんでした。取得設定が必要か、掲載イベントがありません。';
+  if (error.code === 'ROBOTS_DISALLOWED') return 'robots.txtで取得が禁止されています。';
+  if (error.code === 'FETCH_FAILED') return `ページを取得できませんでした。${detail}`;
+  return `${error.code ? `${error.code}: ` : ''}${detail}`;
+}
+
+// Keep feedback beside the checkbox, including after network failures.
+export function bindCandidateActions(root, fetchFn, token, reload) {
+  const handle = async (ev, action) => {
+    const el = ev.target;
+    if (!el.classList?.contains(action) || el.disabled || (action === 'approve' && !el.checked)) return;
+    const row = el.closest('tr');
+    const controls = [...row.querySelectorAll('input, button')];
+    const previous = controls.map((c) => c.disabled);
+    const note = row.querySelector('.note');
+    const message = (text, failed = false) => {
+      note.textContent = text;
+      note.classList.toggle('error', failed);
+      root.message.textContent = text;
+    };
+    controls.forEach((c) => { c.disabled = true; });
+    message(action === 'approve' ? '試し取得して追加しています…' : '却下しています…');
+    let changed = false;
+    try {
+      const r = await (action === 'approve' ? approveCandidate : rejectCandidate)(fetchFn, token, el.dataset.id);
+      if (r.error) {
+        message(`${action === 'approve' ? '追加' : '却下'}できませんでした: ${candidateError(r.error)}`, true);
+        return;
+      }
+      changed = true;
+      message(action === 'approve' ? '追加しました。ソース状態で確認できます。' : '却下しました。');
+      try { await reload(); } catch (e) {
+        message(`保存済みですが、一覧を更新できませんでした。再読み込みしてください: ${e.message}`, true);
+      }
+    } catch (e) {
+      message(`通信に失敗しました。再読み込みして保存状態を確認してください: ${candidateError(e)}`, true);
+    } finally {
+      if (action === 'approve' && !changed) el.checked = false;
+      controls.forEach((c, i) => { c.disabled = changed || previous[i]; });
+    }
+  };
+  root.candidates.addEventListener('change', (ev) => handle(ev, 'approve'));
+  root.candidates.addEventListener('click', (ev) => handle(ev, 'reject'));
+}
+
 // Query window for a month: one day of slack on each side covers tz offsets.
 export function monthRange(year, month) {
   const from = new Date(Date.UTC(year, month - 1, 1) - 86400000).toISOString();
   const to = new Date(Date.UTC(year, month, 1) + 86400000).toISOString();
   return { from, to };
 }
+
+// ICS export of exactly one local-time month (the endpoint's `to` is inclusive, so stop 1ms before next month).
+export function icsUrl(region, year, month) {
+  const from = new Date(year, month - 1, 1).toISOString();
+  const to = new Date(new Date(year, month, 1).getTime() - 1).toISOString();
+  const qs = new URLSearchParams({ from, to }).toString();
+  return `/calendar/${encodeURIComponent(region)}.ics?${qs}`;
+}
+
+export function icsFileName(region, year, month) {
+  return `${region}-${year}-${String(month).padStart(2, '0')}.ics`;
+}
+
+export const GOOGLE_IMPORT_URL = 'https://calendar.google.com/calendar/r/settings/export';
 
 export function regionsOf(sources) {
   return [...new Set((sources || []).map((s) => s.region_id).filter(Boolean))].sort();
@@ -126,6 +187,17 @@ if (typeof document !== 'undefined') {
     view = { region: view.region, weekStart };
     reload();
   });
+  // Download the shown month's ICS, then open Google Calendar's import page (both sync in the click to avoid popup blocking).
+  $('ics').addEventListener('click', () => {
+    if (!view.region) return;
+    const a = document.createElement('a');
+    a.href = icsUrl(view.region, view.year, view.month);
+    a.download = icsFileName(view.region, view.year, view.month);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.open(GOOGLE_IMPORT_URL, '_blank', 'noopener');
+  });
   root.health.addEventListener('change', async (ev) => {
     const el = ev.target;
     if (!el.classList || !el.classList.contains('enabled')) return;
@@ -134,23 +206,7 @@ if (typeof document !== 'undefined') {
     if (r.error) console.error('source toggle failed', r.error);
     reload();
   });
-  root.candidates.addEventListener('change', async (ev) => {
-    const el = ev.target;
-    if (!el.classList || !el.classList.contains('approve') || !el.checked) return;
-    el.disabled = true;
-    root.message.textContent = '試し取得して追加しています…';
-    const r = await approveCandidate(fetchFn, token, el.dataset.id);
-    root.message.textContent = r.error ? `追加できませんでした: ${r.error.code} ${r.error.message}` : '';
-    reload();
-  });
-  root.candidates.addEventListener('click', async (ev) => {
-    const el = ev.target;
-    if (!el.classList || !el.classList.contains('reject')) return;
-    el.disabled = true;
-    const r = await rejectCandidate(fetchFn, token, el.dataset.id);
-    root.message.textContent = r.error ? `却下できませんでした: ${r.error.code} ${r.error.message}` : '';
-    reload();
-  });
+  bindCandidateActions(root, fetchFn, token, reload);
   root.region.addEventListener('change', () => {
     view = { ...view, region: root.region.value };
     reload();

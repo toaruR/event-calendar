@@ -12,7 +12,7 @@ export const SOURCE_SPEC_SCHEMA = {
     /** keep only items mentioning one of these words (title/description/body) */
     include_keywords: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
     /** html only: site-specific parser instead of extract (no item_selector needed) */
-    parser: { enum: ['yahoo_realtime'] },
+    parser: { enum: ['yahoo_realtime', 'saitama_calendar'] },
     fetch: {
       type: 'object',
       properties: {

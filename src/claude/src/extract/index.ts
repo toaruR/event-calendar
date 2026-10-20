@@ -5,6 +5,7 @@ import { extractRss } from './rss.ts';
 import { extractJsonApi } from './json-api.ts';
 import { extractCss } from './css.ts';
 import { extractYahooRealtime } from './yahoo-realtime.ts';
+import { extractSaitamaCalendar } from './saitama-calendar.ts';
 import type { CssSpec } from './css.ts';
 import { extractWithLlm } from './llm-fallback.ts';
 import type { LlmClient, LlmValidate } from './llm-fallback.ts';
@@ -19,7 +20,7 @@ export interface ExtractSpec {
   /** keep only items whose title/description/body contains one of these (e.g. 開催, 実施) */
   include_keywords?: string[];
   /** html only: site-specific parser used instead of JSON-LD/CSS */
-  parser?: 'yahoo_realtime';
+  parser?: 'yahoo_realtime' | 'saitama_calendar';
   fetch?: CssSpec['fetch'];
   extract?: CssSpec['extract'] & { llm_fallback?: boolean };
 }
@@ -44,7 +45,7 @@ export interface ExtractDeps {
 
 export interface ExtractOutcome extends ExtractResult {
   /** which extractor produced the items ('none' when empty) */
-  via: 'ical' | 'jsonld' | 'rss' | 'json_api' | 'css' | 'llm' | 'yahoo_realtime' | 'none';
+  via: 'ical' | 'jsonld' | 'rss' | 'json_api' | 'css' | 'llm' | 'yahoo_realtime' | 'saitama_calendar' | 'none';
   /** structured error from CSS extraction (e.g. INVALID_ARGUMENT) */
   errorCode?: string;
 }
@@ -129,6 +130,7 @@ async function extractRaw(
   else if (kind === 'rss') hit = take(rss(body), 'rss');
   else if (kind === 'jsonld') hit = take(jsonld(body), 'jsonld');
   else if (kind === 'html' && spec.parser === 'yahoo_realtime') hit = take(extractYahooRealtime(body), 'yahoo_realtime');
+  else if (kind === 'html' && spec.parser === 'saitama_calendar') hit = take(extractSaitamaCalendar(body, deps.baseUrl ?? 'https://www.pref.saitama.lg.jp/'), 'saitama_calendar');
   else if (kind === 'html') {
     hit = take(jsonld(body), 'jsonld');
     if (!hit && spec.extract?.item_selector) {

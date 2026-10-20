@@ -126,7 +126,7 @@ export function renderCandidates(candidates) {
     .map((c) => {
       const off = c.robots_allowed ? '' : ' disabled';
       const note = c.robots_allowed ? '' : 'robots.txt で禁止';
-      return `<tr data-id="${esc(c.id)}"><td class="toggle"><label><input type="checkbox" class="approve" data-id="${esc(c.id)}"${off}> 有効</label></td><td>${esc(c.url)}</td><td class="state">${esc(c.kind_guess ?? '')}</td><td class="note">${esc(note)}</td><td><button type="button" class="reject" data-id="${esc(c.id)}">却下</button></td></tr>`;
+      return `<tr data-id="${esc(c.id)}"><td class="toggle"><label><input type="checkbox" class="approve" data-id="${esc(c.id)}"${off}> 追加</label></td><td>${esc(c.url)}</td><td class="state">${esc(c.kind_guess ?? '')}</td><td class="note" role="status">${esc(note)}</td><td><button type="button" class="reject" data-id="${esc(c.id)}">却下</button></td></tr>`;
     })
     .join('');
   return `<table class="health candidates"><tbody>${rows}</tbody></table>`;

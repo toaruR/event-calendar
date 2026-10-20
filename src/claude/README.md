@@ -128,6 +128,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts\
 
 「ソース状態」の各行のチェックボックス「有効」で `PATCH /sources/{id}` (`enabled` + `expected_version`) を送り、ソースを有効/無効に切り替える(無効は `disabled`、取得済みイベントは残る)。その下の「候補」には `GET /candidates` の提案中候補を並べ、チェックで `POST /candidates/{id}/approve`(`terms_note: "GUIで承認"`, `allow_redistribute: false` = ICS 出力対象外)、「却下」で `POST /candidates/{id}/reject`。承認時は試し取得し、0 件なら ZERO_ITEMS で追加されない。robots.txt で禁止の候補はチェック不可。
 
+候補のチェックは「追加」で、試し取得中の表示と失敗理由を各行に表示する。失敗時は未チェックへ戻して再操作を可能にし、成功時は候補からソースへ移動する。通信エラーの場合は保存済みの可能性もあるため、再読み込みして状態を確認する。
+
+抽出設定が未指定のとき、ちょこたび埼玉の `/event/` はイベントカード用CSS、埼玉県公式の `/cgi-bin/event_cal/cal_month.cgi` は月別カレンダー用 `parser: "saitama_calendar"` を自動設定し、成功した設定をソースに保存する（明示指定した設定を優先）。公式カレンダーはページの年月とイベントセルの日付を使い、同じURLでも開催日が異なる場合は別の項目として扱う。通常の公開ページにある背景のreCAPTCHAスクリプトだけではログイン・CAPTCHA画面と判定しない。実際の認証フォーム・チャレンジは引き続き取得を拒否する。
+
 ## クロール先の自動探索
 
 `search_providers` を設定するとデーモンが地域ごとに `discover_interval_sec`(既定 1 日)おきに検索し、見つかった URL を候補(`proposed`)として記録する。クロールは GUI で承認したものだけ。最終探索時刻は `discover_run` テーブルにあり、再起動で再検索しない。登録済み URL と却下済み候補は再提案しない。

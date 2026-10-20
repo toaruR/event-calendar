@@ -9,6 +9,7 @@ import { fetchViaJina, isReadFailure, jinaApplies } from '../net/jina.ts';
 import type { FetchStageDeps } from '../pipeline/fetch-stage.ts';
 import { parseWhen } from '../pipeline/run-job.ts';
 import { extract as runExtract } from '../extract/index.ts';
+import { siteSpec } from '../extract/site-spec.ts';
 import type { ExtractSpec, SourceKind } from '../extract/index.ts';
 import { startLocalDate } from '../normalize/time.ts';
 import { sanitizeText } from '../normalize/sanitize.ts';
@@ -61,6 +62,7 @@ function guessKind(body: string): string {
  * without fetching the body.
  */
 export async function dryRun(url: string, spec: Record<string, unknown> | undefined, deps: DryRunDeps): Promise<DryRunResult> {
+  spec ??= siteSpec(url);
   const config: Config = deps.config ?? defaultConfig();
   const now = deps.now ?? new Date(deps.net.clock.now());
   const allowlist = deps.net.config?.ssrf_allowlist ?? config.ssrf_allowlist;

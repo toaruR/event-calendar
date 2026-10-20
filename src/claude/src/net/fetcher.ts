@@ -43,7 +43,7 @@ export interface FetchSafeResult {
   error?: string;
 }
 
-const CAPTCHA_RE = /g-recaptcha|h-captcha|hcaptcha|cf-turnstile|captcha|<input[^>]+type\s*=\s*["']?password/i;
+const CHALLENGE_RE = /g-recaptcha|h-captcha|hcaptcha|cf-turnstile|<input[^>]+type\s*=\s*["']?password/i;
 
 /** Retry-After: delta-seconds or HTTP-date. Returns seconds (>=0) or null. */
 export function parseRetryAfter(v: string | null, nowMs: number = Date.now()): number | null {
@@ -55,7 +55,12 @@ export function parseRetryAfter(v: string | null, nowMs: number = Date.now()): n
 }
 
 export function looksLikeLoginOrCaptcha(html: string): boolean {
-  return CAPTCHA_RE.test(html);
+  // Public WordPress pages often load reCAPTCHA for contact forms in the footer.
+  // A script reference alone does not mean the requested content is gated.
+  const markup = html.replace(/<!--[^]*?-->|<script\b[^>]*>[^]*?<\/script\s*>|<style\b[^>]*>[^]*?<\/style\s*>/gi, '');
+  const text = markup.replace(/<[^>]*>/g, ' ');
+  return CHALLENGE_RE.test(markup) || /captcha|verify (?:that )?you are human|人間であることを確認/i.test(text)
+    || /\/cdn-cgi\/challenge-platform\//i.test(html);
 }
 
 /** SSRF-checked on every hop (initial + each redirect). Throws AppError SSRF_BLOCKED. */
