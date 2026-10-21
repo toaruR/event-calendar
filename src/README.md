@@ -1,9 +1,11 @@
 # event-calendar
 
 地域イベントカレンダー自動収集システム。Node v24(TypeScript 型ストリップ)+ `node:sqlite` + `node:test`。
-設計書: [`../../docs/design-event-calendar.md`](../../docs/design-event-calendar.md)、計画: [`../../docs/plans/plan-event-calendar.json`](../../docs/plans/plan-event-calendar.json)。
+設計書: [`../docs/design-event-calendar.md`](../docs/design-event-calendar.md)、計画: [`../docs/plans/plan-event-calendar.json`](../docs/plans/plan-event-calendar.json)。
 
 ## インストールと実行
+
+リポジトリルートから `cd src` で移動してから実行する。
 
 ```
 npm install            # 依存: ajv, cheerio, ical.js / devDependencies: typescript, eslint 一式 (要ネットワーク)

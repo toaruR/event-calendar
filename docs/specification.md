@@ -12,13 +12,13 @@
 
 ## 1. 概要
 
-- 対象は地域イベントカレンダー(event-calendar)。実装は `src/claude/` にある。
+- 対象は地域イベントカレンダー(event-calendar)。実装は `src/` にある。
 - システムは登録したソースからイベントを定期収集する。
 - 収集したイベントは地域ごとに検索でき、ICS でも配信する。
 - 実行環境は Node v24 の型ストリップ、`node:sqlite`、`node:test`。
 - 設計の正本は `docs/design-event-calendar.md` とする。
 - `docs/design-event-calendar.orig.md` はポート変更前の設計書の写し。
-- 操作の詳細(全コマンド・全既定値)は `src/claude/README.md` に書く。
+- 操作の詳細(全コマンド・全既定値)は `src/README.md` に書く。
 
 ## 2. 構成
 
@@ -210,7 +210,7 @@ stateDiagram-v2
 - 範囲表記のうち `M月D日からM月D日まで` は認識しない。
 - CSS 抽出は、会場欄の見出しラベル(例「会場」)を値から除けない。
 - RSS の概要に残る HTML 実体参照(`[&#8230;]` など)はそのまま表示される。
-- `src/claude/README.md` 冒頭の起動例と CLI 表の `daemon` 行は `--config` を載せていない。
+- `src/README.md` 冒頭の起動例と CLI 表の `daemon` 行は `--config` を載せていない。
 
 ## 用語集
 

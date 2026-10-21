@@ -24,4 +24,4 @@ __pycache__/
 .agents/hooks/
 .agents/hooks.json
 docs/knowledge-kit-usage.md
-src/claude/config.json
+src/config.json
