@@ -18,7 +18,7 @@
 - 実行環境は Node v24 の型ストリップ、`node:sqlite`、`node:test`。
 - 設計の正本は `docs/design-event-calendar.md` とする。
 - `docs/design-event-calendar.orig.md` はポート変更前の設計書の写し。
-- 操作の詳細(全コマンド・全既定値)は `src/README.md` に書く。
+- 操作の詳細(全コマンド・全既定値)は `README.md` に書く。
 
 ## 2. 構成
 
@@ -64,6 +64,8 @@
 - ソースは 1 つの地域に属し、URL と SourceSpec を持つ。
 - ソース登録時、システムは試し取得(dry run)を行う。0 件ならソースを登録しない。
 - ソース登録には `terms_note` と `allow_redistribute` が必須。
+- `allow_redistribute: false`のソースも、ICSに日時・タイトル・URLを出力する。
+- この場合、ICSには説明と会場情報を出力しない。
 - ソース更新は楽観ロックで行う。`expected_version` が現在の `spec_version` と違えば CONFLICT になる。
 - 更新が成功すると `spec_version` が 1 増え、旧 spec は履歴に残る。
 - ロールバックは履歴の spec を新しい版として復元する。
@@ -210,7 +212,6 @@ stateDiagram-v2
 - 範囲表記のうち `M月D日からM月D日まで` は認識しない。
 - CSS 抽出は、会場欄の見出しラベル(例「会場」)を値から除けない。
 - RSS の概要に残る HTML 実体参照(`[&#8230;]` など)はそのまま表示される。
-- `src/README.md` 冒頭の起動例と CLI 表の `daemon` 行は `--config` を載せていない。
 
 ## 用語集
 
@@ -221,3 +222,7 @@ stateDiagram-v2
 - **開催日**: 記事が示すイベントの日付。`date_from: content` で使う。
 - **embedded モード**: CLI がデーモンを介さず DB を直接操作する動作。
 - **GUI トークン**: GUI のリクエストを他プロセスから区別するための、起動ごとの乱数。
+- **地域**: イベントをまとめる対象。ID・地域名・タイムゾーン・判定用の語を持つ。
+- **候補**: 探索で見つかった、ソース登録前の収集先。
+- **デーモン**: 画面・API・定期収集を提供する常駐処理。
+- **ICS**: 他のカレンダーへイベントを渡すiCalendar形式のファイル。
