@@ -35,6 +35,18 @@ function safeUrl(u) {
   return typeof u === 'string' && /^https?:/i.test(u) ? u : '';
 }
 
+// Single-event ICS download (from=to=start_utc pins the range to the event itself).
+export function eventIcsUrl(e) {
+  if (!e.id || !e.region_id || !e.start_utc) return '';
+  const qs = new URLSearchParams({ event_id: e.id, from: e.start_utc, to: e.start_utc }).toString();
+  return `/calendar/${encodeURIComponent(e.region_id)}.ics?${qs}`;
+}
+
+function icsLink(e) {
+  const u = eventIcsUrl(e);
+  return u ? ` <a class="ics" href="${esc(u)}" download="${esc(`${e.id}.ics`)}" title="このイベントをICSでダウンロード">ICS</a>` : '';
+}
+
 function eventsOn(events, date) {
   return (events || []).filter((e) => eventDate(e) === date);
 }
@@ -45,7 +57,8 @@ function eventLabel(e) {
   const url = safeUrl(e.url);
   const tip = esc([e.title, e.venue_name].filter(Boolean).join(' / '));
   const body = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${title}</a>` : title;
-  return `<li class="event" title="${tip}">${t ? `<span class="time">${esc(t)}</span> ` : ''}${body}</li>`;
+  // The ICS link sits outside the line-clamped label so long titles never hide it.
+  return `<li class="event" title="${tip}"><span class="label">${t ? `<span class="time">${esc(t)}</span> ` : ''}${body}</span>${icsLink(e)}</li>`;
 }
 
 function dayCell(date, events, today) {
@@ -112,10 +125,10 @@ export function renderEventList(events) {
       const url = safeUrl(e.url);
       const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>` : esc(e.title);
       const desc = e.description ? `<div class="desc">${esc(e.description)}</div>` : '';
-      return `<tr><td class="when">${esc(d)}(${esc(dow)}) ${esc(eventTime(e) || '終日')}</td><td>${title}${desc}</td><td class="venue">${esc(e.venue_name ?? '')}</td></tr>`;
+      return `<tr><td class="when">${esc(d)}(${esc(dow)}) ${esc(eventTime(e) || '終日')}</td><td>${title}${desc}</td><td class="venue">${esc(e.venue_name ?? '')}</td><td class="ics-cell">${icsLink(e)}</td></tr>`;
     })
     .join('');
-  return `<table class="event-list"><thead><tr><th>日時</th><th>イベント</th><th>会場</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="event-list"><thead><tr><th>日時</th><th>イベント</th><th>会場</th><th>ICS</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // Proposed candidates: checking the box approves (adds) the source; robots-disallowed ones cannot be checked.

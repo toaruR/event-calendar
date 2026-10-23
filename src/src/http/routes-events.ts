@@ -31,7 +31,8 @@ export function registerEventRoutes(r: Router): void {
     if (Number.isNaN(Date.parse(from)) || Number.isNaN(Date.parse(to)) || Date.parse(from) > Date.parse(to)) {
       throw new AppError('INVALID_ARGUMENT', 'invalid from/to range', { from, to });
     }
-    const cal = buildCalendar(core.db, regionId, { from, to, now, ...(core.deps.config ? { config: core.deps.config } : {}) });
+    const eventId = query.get('event_id');
+    const cal = buildCalendar(core.db, regionId, { from, to, now, ...(eventId ? { eventId } : {}), ...(core.deps.config ? { config: core.deps.config } : {}) });
     const headers = { 'content-type': 'text/calendar; charset=utf-8', etag: cal.etag };
     const inm = req.headers['if-none-match'];
     if (typeof inm === 'string' && inm.split(',').some((t) => t.trim() === cal.etag || t.trim() === '*')) {

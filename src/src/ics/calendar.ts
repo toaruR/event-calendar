@@ -12,6 +12,8 @@ export interface CalendarOpts {
   from: string;
   to: string;
   now: Date | number;
+  /** Restrict the output to this one event (per-event ICS). */
+  eventId?: string;
   config?: Pick<Config, 'cancelled_retention' | 'redact_contact'>;
 }
 
@@ -34,6 +36,7 @@ export function buildCalendar(db: DatabaseSync, regionId: string, opts: Calendar
 
   const parts: string[] = [];
   for (const e of listEvents(db, { region_id: regionId, from: opts.from, to: opts.to })) {
+    if (opts.eventId !== undefined && e.id !== opts.eventId) continue;
     if (e.status === 'cancelled') {
       const at = Date.parse(e.cancelled_at ?? e.last_seen_at ?? '');
       if (!Number.isNaN(at) && at < cutoff) continue;

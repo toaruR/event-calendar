@@ -56,6 +56,9 @@ test('GET /calendar/{region}.ics: ETag, 304, change -> new ETag, 404, no token o
     const r3 = await fetch(`${base}/calendar/r1.ics`, { headers: { 'if-none-match': etag } });
     assert.equal(r3.status, 200);
     assert.notEqual(r3.headers.get('etag'), etag);
+    const one = await (await fetch(`${base}/calendar/r1.ics?event_id=e2&from=2026-11-04T10:00:00Z&to=2026-11-04T10:00:00Z`)).text();
+    assert.equal(one.match(/BEGIN:VEVENT/g)?.length, 1);
+    assert.match(one, /ヨガ教室/);
     const nf = await s.call('GET', '/calendar/zz.ics');
     assert.equal(nf.status, 404);
     assert.equal(nf.body.error.code, 'NOT_FOUND');

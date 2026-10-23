@@ -28,9 +28,13 @@
   .day.today .date { display: inline-flex; align-items: center; justify-content: center; min-width: 1.7rem; height: 1.7rem; padding: 0 4px; border-radius: 999px; background: var(--accent); color: #fff; }
   .today-label { margin-left: 4px; color: var(--accent); font-size: .75rem; font-weight: 700; white-space: nowrap; }
   .day ul { list-style: none; margin: 2px 0 0; padding: 0; }
-  .day .event { font-size: .78rem; line-height: 1.3; margin-bottom: 3px; padding: 2px 4px; border-radius: 4px; background: #eff4ff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .day .event { font-size: .78rem; line-height: 1.3; margin-bottom: 3px; padding: 2px 4px; border-radius: 4px; background: #eff4ff; display: flex; align-items: flex-start; gap: 4px; }
+  .day .event .label { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .day .event a.ics { flex-shrink: 0; }
   .event a, .event-list a { color: inherit; text-decoration: none; }
   .event a:hover, .event-list a:hover { text-decoration: underline; color: var(--accent); }
+  a.ics { font-size: .7rem; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 3px; white-space: nowrap; }
+  a.ics:hover { background: var(--accent); color: #fff; text-decoration: none; }
   .time { color: var(--muted); font-variant-numeric: tabular-nums; }
   h3 { font-size: 1.05rem; margin: 24px 0 8px; }
   table { border-collapse: collapse; width: 100%; font-size: .9rem; }
