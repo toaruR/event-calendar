@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS source_spec_history (
   source_id TEXT NOT NULL, spec_version INTEGER NOT NULL, spec_json TEXT, changed_by TEXT, changed_at TEXT,
   PRIMARY KEY (source_id, spec_version)
 );
+CREATE TABLE IF NOT EXISTS holiday (
+  date TEXT PRIMARY KEY, name TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS holiday_sync (
+  id INTEGER PRIMARY KEY CHECK (id = 1), last_at TEXT NOT NULL, etag TEXT, last_modified TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_event_region_start ON event(region_id, start_utc);
 CREATE INDEX IF NOT EXISTS idx_event_dedup_key ON event(dedup_key);
 `;

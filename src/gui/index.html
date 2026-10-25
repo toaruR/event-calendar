@@ -24,6 +24,9 @@
   .day .date { font-size: .85rem; font-weight: 600; }
   .dow0 .date, .dow-head.dow0 { color: var(--sun); }
   .dow6 .date, .dow-head.dow6 { color: var(--sat); }
+  .day.holiday .date { color: var(--sun); }
+  .day.holiday:not(.today) { background: #fff5f5; }
+  .holiday-name { margin-left: 4px; color: var(--sun); font-size: .72rem; }
   .day.today { background: #eff6ff; box-shadow: inset 0 0 0 2px var(--accent); }
   .day.today .date { display: inline-flex; align-items: center; justify-content: center; min-width: 1.7rem; height: 1.7rem; padding: 0 4px; border-radius: 999px; background: var(--accent); color: #fff; }
   .today-label { margin-left: 4px; color: var(--accent); font-size: .75rem; font-weight: 700; white-space: nowrap; }

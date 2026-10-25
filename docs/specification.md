@@ -53,6 +53,8 @@
 | `listen` | `127.0.0.1:18787` | デーモンの待受。8787 は他用途と衝突するため 18787 |
 | `contact_url` | `http://127.0.0.1:18787/about` | User-Agent に書く連絡先 |
 | `week_start` | `sunday` | GUI カレンダーの週の開始曜日。`monday` で月曜始まり |
+| `holiday_url` | `https://holidays-jp.github.io/api/v1/date.json` | 日本の祝日データの取得先(`{"YYYY-MM-DD":"名称"}` 形式の JSON) |
+| `holiday_interval_sec` | 604800 | 祝日データの自動更新間隔(秒)。0 で更新しない |
 | `ssrf_allowlist` | `[]` | プライベートアドレスへの取得を許すホスト |
 | `search_provider` | `none` | ソース自動探索の検索手段。`none` では探索不可 |
 | `year_past_window` / `year_future_window` | 30 / 183 | 年なし日付の年推定の窓(日) |
@@ -164,9 +166,10 @@ stateDiagram-v2
 
 ## 7. HTTP API と認証
 
-- デーモンは 13 の API ルートと静的配信(`GET /`、`GET /gui/*`)を持つ。
+- デーモンは 16 の API ルートと静的配信(`GET /`、`GET /gui/*`)を持つ。
 - `GET /events` は `region_id`・`from`・`to` が必須。無いと INVALID_ARGUMENT(400)になる。
 - `GET /calendar/{region_id}.ics` は ICS を返す。ETag と `If-None-Match` で 304 を返す。
+- `GET /holidays?from=YYYY-MM-DD&to=YYYY-MM-DD` は保存済みの祝日を返す(`holidays`・`covered_years`・`updated_at`)。日付形式が違うと 400。
 - `X-GUI-Token` ヘッダ付きのリクエストだけトークンを検証する。値が違うと 400 になる。
 - ヘッダの無いリクエスト(CLI)は検証しない。
 - トークンは起動ごとに生成し、ディスクに書かない。
@@ -187,6 +190,9 @@ stateDiagram-v2
 - ポートを指定しなければ設定 `listen` のポートを使う。`--port 0` は空きポートを使う。
 - SIGINT / SIGTERM で停止する。
 - Windows では `--stdin-shutdown` を付けると、stdin の `shutdown` 行または EOF で停止する。
+- 祝日データは 1 時間ごとに期限を確認し、前回成功から `holiday_interval_sec` 経過していれば `holiday_url` を取り直す。
+  - robots.txt・レート制限・SSRF 検査・ETag 条件付き取得はソース取得と同じ。
+  - 成功時は `holiday` テーブルを丸ごと置き換える。失敗時は前回データを残し、次の確認で再試行する。
 
 ## 10. GUI
 
@@ -200,6 +206,7 @@ stateDiagram-v2
 - タイトルは元ページへのリンクになる。リンクにするのは `http` / `https` の URL だけ。
 - 週の開始曜日は `<meta name="week-start">` に従う。
 - 月初より前の空きマスは日付マスとして数えない。
+- 日本の祝日は赤字と祝日名で出す。`GET /holidays` が対象年を含むならそのデータを使い、含まない年や取得失敗時は `gui/holidays.js` の計算(振替休日・国民の休日を含む)で補う。
 - イベント一覧は日時・タイトル・概要・会場を時刻順に出す。
 - ソースの状態は折りたたみ欄に URL・種類・状態・版で出す。
 

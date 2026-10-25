@@ -1,5 +1,6 @@
 // GUI app: same-origin calls to the HTTP API with X-GUI-Token, rendered via render.js.
 import { esc, renderSources, renderHealth, renderCandidates, renderMonth, renderEventList } from './render.js';
+import { holidayLookup } from './holidays.js';
 
 export function readToken(doc) {
   const m = doc.querySelector('meta[name="gui-token"]');
@@ -142,13 +143,21 @@ export async function loadAll(fetchFn, token, root, now = new Date(), view = {})
     events = ev.events || [];
   }
   const mm = String(month).padStart(2, '0');
+  // Holiday data failures must not break the calendar: fall back to offline computation.
+  let remoteHolidays = null;
+  try {
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const qs = new URLSearchParams({ from: `${year}-${mm}-01`, to: `${year}-${mm}-${last}` }).toString();
+    const h = await api(fetchFn, token, 'GET', `/holidays?${qs}`);
+    if (!h.error) remoteHolidays = h;
+  } catch { /* offline fallback */ }
   const inMonth = events.filter((e) => String(e.start_local_date ?? '').startsWith(`${year}-${mm}`));
   const byId = new Map((health.sources || []).map((h) => [h.id, h]));
   const merged = sources.map((s) => ({ ...s, ...(byId.get(s.id) || {}), name: s.name ?? s.url ?? s.id }));
   root.health.innerHTML = renderHealth(merged);
   root.sources.innerHTML = renderSources(sources);
   if (root.candidates) root.candidates.innerHTML = renderCandidates(cand.candidates);
-  root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart, now);
+  root.events.innerHTML = renderMonth(year, month, inMonth, view.weekStart, now, holidayLookup(remoteHolidays));
   if (root.list) root.list.innerHTML = renderEventList(inMonth);
   if (root.title) root.title.textContent = `${year}年${month}月`;
   if (root.region) {

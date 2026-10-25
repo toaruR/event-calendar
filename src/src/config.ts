@@ -63,6 +63,10 @@ export interface Config {
   approval_token_ttl: number;
   /** GUI calendar first day of week */
   week_start: WeekStart;
+  /** Japanese holiday data (holidays-jp JSON format: {"YYYY-MM-DD": "name"}) */
+  holiday_url: string;
+  /** periodic holiday data refresh (seconds); 0 = never */
+  holiday_interval_sec: number;
 }
 
 export function defaultConfig(): Config {
@@ -116,6 +120,8 @@ export function defaultConfig(): Config {
     require_approval: ['source_remove', 'enable_browser'],
     approval_token_ttl: 600,
     week_start: 'sunday',
+    holiday_url: 'https://holidays-jp.github.io/api/v1/date.json',
+    holiday_interval_sec: 604800,
   };
 }
 

@@ -33,13 +33,14 @@ const SECTION_5_4: string[] = [
   'GET /events',
   'GET /calendar/{file}',
   'GET /health',
+  'GET /holidays',
 ];
 
-test('out-of-scope: server routes == 15 (section-5.4 + candidates) routes + static (GET /, GET /gui/*), no extras', async () => {
+test('out-of-scope: server routes == 16 (section-5.4 + candidates + holidays) routes + static (GET /, GET /gui/*), no extras', async () => {
   const actual = s.h.router.routes.map((r) => `${r.method} /${r.segs.join('/')}`);
   assert.equal(new Set(actual).size, actual.length, 'no duplicate routes');
   assert.deepEqual([...actual].sort(), [...SECTION_5_4].sort());
-  assert.equal(actual.length, 15);
+  assert.equal(actual.length, 16);
 
   // static delivery is handled outside the router: exactly "/" and "/gui/*"
   assert.equal(isStaticPath('/'), true);
@@ -48,7 +49,7 @@ test('out-of-scope: server routes == 15 (section-5.4 + candidates) routes + stat
 
   const full = [...actual, 'GET /', 'GET /gui/*'].sort();
   assert.deepEqual(full, [...SECTION_5_4, 'GET /', 'GET /gui/*'].sort());
-  assert.equal(full.length, 17);
+  assert.equal(full.length, 18);
 
   // and the static routes really are served: GET / and an existing GUI file
   const guiDir = fileURLToPath(new URL('../../gui/', import.meta.url));

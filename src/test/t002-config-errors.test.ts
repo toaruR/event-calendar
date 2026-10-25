@@ -20,6 +20,7 @@ test('config defaults match design section 4 exactly', () => {
     retry_backoff: { base_sec: 60, cap_sec: 600, jitter: 0.2, max_attempts: 5 },
     failure_stretch_cap_sec: 86400, robots_cache: 86400,
     require_approval: ['source_remove', 'enable_browser'], approval_token_ttl: 600, week_start: 'sunday',
+    holiday_url: 'https://holidays-jp.github.io/api/v1/date.json', holiday_interval_sec: 604800,
   });
 });
 

@@ -15,6 +15,7 @@ import type { Core, HttpCore } from './http/server.ts';
 import type { Rand } from './net/backoff.ts';
 import { discoverDue } from './service/discover.ts';
 import { buildSearchProvider } from './service/search-providers.ts';
+import { holidaySyncDue, syncHolidays } from './service/holidays.ts';
 
 export interface CoreDeps {
   clock?: Clock;
@@ -31,6 +32,8 @@ export interface CoreDeps {
   autoRun?: boolean;
   /** periodic discover loop (config.discover_interval_sec). Default: same as worker. */
   discover?: boolean;
+  /** periodic holiday data refresh (config.holiday_interval_sec). Default: same as worker. */
+  holidays?: boolean;
 }
 
 export interface DispatchResult { status: number; body?: unknown; raw?: string; headers?: Record<string, string> }
@@ -92,6 +95,22 @@ export function createCore(db: DatabaseSync, config: Config = defaultConfig(), d
             } catch (e) { process.stderr.write(`warn: discover loop: ${e instanceof Error ? e.message : String(e)}
 `); }
             await clock.sleep(Math.min(config.discover_interval_sec, 3600) * 1000);
+          }
+        })();
+      }
+      if ((deps.holidays ?? (deps.worker !== false && deps.autoRun !== false)) && config.holiday_interval_sec > 0) {
+        // checks hourly; holiday_sync.last_at decides whether a refresh is due
+        void (async () => {
+          while (!discoverStopped) {
+            try {
+              if (holidaySyncDue(db, clock, config)) {
+                const r = await syncHolidays(db, net, config);
+                if (r.outcome === 'failed') process.stderr.write(`warn: holiday sync failed: ${r.error}
+`);
+              }
+            } catch (e) { process.stderr.write(`warn: holiday loop: ${e instanceof Error ? e.message : String(e)}
+`); }
+            await clock.sleep(Math.min(config.holiday_interval_sec, 3600) * 1000);
           }
         })();
       }

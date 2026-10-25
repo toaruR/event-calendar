@@ -575,6 +575,8 @@ CLIの終了コードは、2です。
 | require_approval | `["source_remove", "enable_browser"]` |
 | approval_token_ttl | 600 |
 | week_start | `"sunday"`(GUI カレンダーの週の開始曜日。`"monday"` で月曜始まり) |
+| holiday_url | `"https://holidays-jp.github.io/api/v1/date.json"`(日本の祝日データの取得先) |
+| holiday_interval_sec | 604800(祝日データの自動更新間隔。0 で更新しない) |
 
 ## 開発と検査
 

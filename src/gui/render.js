@@ -1,4 +1,6 @@
 // Pure string renderers for the GUI (browser + Node). All values are HTML-escaped (F9).
+import { holidayName } from './holidays.js';
+
 export function esc(v) {
   return String(v ?? '')
     .replaceAll('&', '&amp;')
@@ -61,11 +63,13 @@ function eventLabel(e) {
   return `<li class="event" title="${tip}"><span class="label">${t ? `<span class="time">${esc(t)}</span> ` : ''}${body}</span>${icsLink(e)}</li>`;
 }
 
-function dayCell(date, events, today) {
+function dayCell(date, events, today, holidayOf) {
   const items = eventsOn(events, date).map(eventLabel).join('');
   const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
   const isToday = date === today;
-  return `<div class="day dow${dow}${isToday ? ' today' : ''}" data-date="${esc(date)}"${isToday ? ' aria-current="date"' : ''}><span class="date">${esc(Number(date.slice(8, 10)))}</span>${isToday ? '<span class="today-label">今日</span>' : ''}<ul>${items}</ul></div>`;
+  const holiday = holidayOf(date);
+  const hol = holiday ? `<span class="holiday-name">${esc(holiday)}</span>` : '';
+  return `<div class="day dow${dow}${isToday ? ' today' : ''}${holiday ? ' holiday' : ''}" data-date="${esc(date)}"${isToday ? ' aria-current="date"' : ''}><span class="date">${esc(Number(date.slice(8, 10)))}</span>${isToday ? '<span class="today-label">今日</span>' : ''}${hol}<ul>${items}</ul></div>`;
 }
 
 export function renderSources(sources) {
@@ -86,7 +90,8 @@ export function renderSpecEditor(source) {
 
 // Month grid; weekStart 'monday' starts on Monday, otherwise Sunday.
 // Leading blanks are .pad (not .day), so .day count == days in month.
-export function renderMonth(year, month, events, weekStart = 'sunday', now = new Date()) {
+// holidayOf: 'YYYY-MM-DD' -> holiday name or '' (default: offline computation).
+export function renderMonth(year, month, events, weekStart = 'sunday', now = new Date(), holidayOf = holidayName) {
   const today = localYmd(now);
   const ws = weekStart === 'monday' ? 1 : 0;
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -98,18 +103,18 @@ export function renderMonth(year, month, events, weekStart = 'sunday', now = new
   }
   for (let i = 0; i < lead; i++) cells += '<div class="pad"></div>';
   for (let d = 1; d <= days; d++) {
-    cells += dayCell(`${year}-${p2(month)}-${p2(d)}`, events, today);
+    cells += dayCell(`${year}-${p2(month)}-${p2(d)}`, events, today, holidayOf);
   }
   return `<div class="month" data-month="${esc(year)}-${p2(month)}">${cells}</div>`;
 }
 
-export function renderWeek(startDate, events, now = new Date()) {
+export function renderWeek(startDate, events, now = new Date(), holidayOf = holidayName) {
   const today = localYmd(now);
   const [y, m, d] = String(startDate).split('-').map(Number);
   const start = Date.UTC(y, m - 1, d);
   let cells = '';
   for (let i = 0; i < 7; i++) {
-    cells += dayCell(ymd(new Date(start + i * 86400000)), events, today);
+    cells += dayCell(ymd(new Date(start + i * 86400000)), events, today, holidayOf);
   }
   return `<div class="week" data-start="${esc(startDate)}">${cells}</div>`;
 }

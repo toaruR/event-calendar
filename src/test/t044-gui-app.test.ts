@@ -71,7 +71,7 @@ test('app.js calls /sources /events /health with X-GUI-Token; wrong token -> 400
     const el = () => ({ innerHTML: '' });
     const root = { health: el(), sources: el(), events: el() };
     await loadAll(spy, h.token, root, new Date('2026-10-01T00:00:00Z'));
-    assert.deepEqual(calls.map((c) => c.path.split('?')[0]).sort(), ['/candidates', '/events', '/health', '/sources']);
+    assert.deepEqual(calls.map((c) => c.path.split('?')[0]).sort(), ['/candidates', '/events', '/health', '/holidays', '/sources']);
     const evPath = calls.find((c) => c.path.startsWith('/events'))!.path;
     assert.match(evPath, /region_id=r1/);
     assert.match(evPath, /from=/);
