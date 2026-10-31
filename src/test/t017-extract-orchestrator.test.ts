@@ -94,3 +94,16 @@ test('html: css used when jsonld empty', async () => {
   assert.equal(r.via, 'css');
   assert.equal(r.items.length, 1);
 });
+
+test('html: css year_from supplies page year to year-less dates', async () => {
+  const html = '<h1>2026年10月のイベントカレンダー</h1>' +
+    '<li class="ev"><h3>A</h3><time>7月25日（土曜日）～11月3日（火曜日）</time></li>' +
+    '<li class="ev"><h3>B</h3><time>2025年10月18日</time></li>';
+  const fields = { title: { css: 'h3' }, date: { css: 'time' }, description: { css: 'time' } };
+  const r = await extract('html', html,
+    { date_from: 'content', extract: { item_selector: 'li.ev', fields, year_from: { css: 'h1' } } }, { now: NOW });
+  assert.deepEqual(r.items.map((i) => [i.start, i.end]), [['2026-07-25', '2026-11-03'], ['2025-10-18', null]]);
+  // without year_from the July start is pushed to next year
+  const r2 = await extract('html', html, { date_from: 'content', extract: { item_selector: 'li.ev', fields } }, { now: NOW });
+  assert.equal(r2.items[0]!.start, '2027-07-25');
+});

@@ -46,6 +46,8 @@ export const SOURCE_SPEC_SCHEMA = {
             },
           },
         },
+        /** page-level element holding "YYYY年" for year-less item dates */
+        year_from: { type: 'object', required: ['css'], properties: { css: { type: 'string' } } },
         date_format_hints: { type: 'array', items: { type: 'string' } },
         default_tz: { type: 'string' },
         llm_fallback: { type: 'boolean' },

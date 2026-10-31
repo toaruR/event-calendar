@@ -10,7 +10,7 @@ import type { CssSpec } from './css.ts';
 import { extractWithLlm } from './llm-fallback.ts';
 import type { LlmClient, LlmValidate } from './llm-fallback.ts';
 import type { ExtractResult, RawItem } from './types.ts';
-import { findEventDateIn } from '../normalize/event-date.ts';
+import { findEventDate, findEventDateIn } from '../normalize/event-date.ts';
 
 export type SourceKind = 'ical' | 'rss' | 'jsonld' | 'html' | 'json_api';
 
@@ -61,7 +61,12 @@ export function applyContentDates(items: RawItem[], deps: Pick<ExtractDeps, 'now
   const out: RawItem[] = [];
   let dropped = 0;
   for (const it of items) {
-    const pub = it.start ? Date.parse(it.start) : Number.NaN;
+    let pub = it.start ? Date.parse(it.start) : Number.NaN;
+    if (Number.isNaN(pub) && it.start && /\d{4}\s*年/.test(it.start)) {
+      // "2026年7月25日" (e.g. css year_from) -> reference date
+      const j = findEventDate(it.start, { ref: now, pastWindow, futureWindow });
+      if (j) pub = Date.parse(j.start.slice(0, 10));
+    }
     const ref = Number.isNaN(pub) ? now : new Date(pub);
     const d = findEventDateIn([it.title, it.description, it.content], { ref, pastWindow, futureWindow });
     if (!d) { dropped++; continue; }

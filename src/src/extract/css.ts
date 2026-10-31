@@ -6,7 +6,8 @@ import type { RawItem } from './types.ts';
 export interface CssField { css: string; attr?: string; absolutize?: boolean }
 export interface CssSpec {
   fetch?: { paging?: { type?: 'next_link'; selector?: string; max_pages?: number } };
-  extract: { item_selector: string; fields: Record<string, CssField> };
+  /** year_from: page-level element whose "YYYY年" is prefixed to year-less item dates (e.g. a monthly calendar heading) */
+  extract: { item_selector: string; fields: Record<string, CssField>; year_from?: { css: string } };
 }
 export interface CssDeps {
   /** fetches a follow-up page (absolute URL) and returns HTML; may throw. */
@@ -34,7 +35,10 @@ function abs(v: string, base: string): string {
 function pageItems(html: string, spec: CssSpec, base: string): { items: CssItem[]; $: cheerio.CheerioAPI } {
   const $ = cheerio.load(html);
   const items: CssItem[] = [];
-  const { item_selector, fields } = spec.extract;
+  const { item_selector, fields, year_from } = spec.extract;
+  const pageYear = year_from ? /(\d{4})\s*年/.exec($(year_from.css).first().text())?.[1] : undefined;
+  const withYear = (v: string | null): string | null =>
+    v && pageYear && !/\d{4}\s*[年\-/]/.test(v) && /^\D{0,3}\d{1,2}\s*月/.test(v) ? `${pageYear}年${v}` : v;
   $(item_selector).each((_i, el) => {
     const root = $(el);
     const get = (name: string): string | null => {
@@ -49,7 +53,7 @@ function pageItems(html: string, spec: CssSpec, base: string): { items: CssItem[
     };
     const title = get('title');
     if (!title) return;
-    const date = get('date');
+    const date = withYear(get('date'));
     const url = get('url');
     const start = date ?? get('start');
     items.push({
