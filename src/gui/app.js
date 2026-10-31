@@ -13,6 +13,12 @@ export function readWeekStart(doc) {
   return m && m.getAttribute('content') === 'monday' ? 'monday' : 'sunday';
 }
 
+// Initial region_id from the server-embedded <meta name="default-region"> (config default_region); '' = none.
+export function readDefaultRegion(doc) {
+  const m = doc.querySelector('meta[name="default-region"]');
+  return m ? m.getAttribute('content') || '' : '';
+}
+
 export async function api(fetchFn, token, method, path, body) {
   const init = { method, headers: { 'X-GUI-Token': token } };
   if (body !== undefined) {
@@ -123,7 +129,7 @@ export function regionsOf(sources) {
   return [...new Set((sources || []).map((s) => s.region_id).filter(Boolean))].sort();
 }
 
-// view: { year, month, region, weekStart } — region defaults to the first region that has sources.
+// view: { year, month, region, weekStart } — unknown/empty region falls back to the first region that has sources.
 export async function loadAll(fetchFn, token, root, now = new Date(), view = {}) {
   const [src, health, cand] = await Promise.all([
     api(fetchFn, token, 'GET', '/sources'),
@@ -181,7 +187,7 @@ if (typeof document !== 'undefined') {
   const token = readToken(document);
   const fetchFn = (p, i) => fetch(p, i);
   const weekStart = readWeekStart(document);
-  let view = { weekStart };
+  let view = { weekStart, region: readDefaultRegion(document) || undefined };
   const reload = async () => {
     view = (await loadAll(fetchFn, token, root, new Date(), view)).view;
   };

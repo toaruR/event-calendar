@@ -63,6 +63,8 @@ export interface Config {
   approval_token_ttl: number;
   /** GUI calendar first day of week */
   week_start: WeekStart;
+  /** GUI initial region_id; '' (or a region without sources) = first region that has sources */
+  default_region: string;
   /** Japanese holiday data (holidays-jp JSON format: {"YYYY-MM-DD": "name"}) */
   holiday_url: string;
   /** periodic holiday data refresh (seconds); 0 = never */
@@ -120,6 +122,7 @@ export function defaultConfig(): Config {
     require_approval: ['source_remove', 'enable_browser'],
     approval_token_ttl: 600,
     week_start: 'sunday',
+    default_region: '',
     holiday_url: 'https://holidays-jp.github.io/api/v1/date.json',
     holiday_interval_sec: 604800,
   };
@@ -167,6 +170,8 @@ export function loadConfigFile(path: string): Config {
   }
   const ws = (json as Record<string, unknown>)['week_start'];
   if (ws !== undefined && ws !== 'sunday' && ws !== 'monday') throw bad('week_start must be "sunday" or "monday"', { week_start: ws });
+  const dr = (json as Record<string, unknown>)['default_region'];
+  if (dr !== undefined && typeof dr !== 'string') throw bad('default_region must be a string (region_id)', { default_region: dr });
   const sp = (json as Record<string, unknown>)['search_providers'];
   if (sp !== undefined && (!Array.isArray(sp) || sp.some((v) => typeof v !== 'string' || !SEARCH_PROVIDERS.includes(v)))) {
     throw bad(`search_providers must be an array of ${SEARCH_PROVIDERS.join(' | ')}`, { search_providers: sp });

@@ -1,5 +1,6 @@
 {
   "week_start": "monday",
+  "default_region": "",
   "search_providers": ["brave", "duckduckgo"],
   "brave_api_key": "",
   "x_search": true,

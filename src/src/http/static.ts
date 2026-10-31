@@ -18,7 +18,10 @@ export function isStaticPath(path: string): boolean {
   return path === '/' || path.startsWith('/gui/');
 }
 
-export interface GuiSettings { weekStart?: string }
+export interface GuiSettings { weekStart?: string; defaultRegion?: string }
+
+const attrEsc = (s: string): string =>
+  s.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll("'", '&#39;');
 
 /** Serve GET / (index.html with the gui_token and GUI settings embedded) and GET /gui/* (files under gui/ only). */
 export function serveStatic(rawPath: string, token: string, gui: GuiSettings = {}): RouteResult {
@@ -39,6 +42,8 @@ export function serveStatic(rawPath: string, token: string, gui: GuiSettings = {
     text = text.replaceAll('<meta name="gui-token" content="">', `<meta name="gui-token" content="${token}">`);
     const ws = gui.weekStart === 'monday' ? 'monday' : 'sunday';
     text = text.replaceAll('<meta name="week-start" content="">', `<meta name="week-start" content="${ws}">`);
+    const dr = typeof gui.defaultRegion === 'string' ? attrEsc(gui.defaultRegion) : '';
+    text = text.replaceAll('<meta name="default-region" content="">', `<meta name="default-region" content="${dr}">`);
   }
   return { raw: text, headers: { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' } };
 }

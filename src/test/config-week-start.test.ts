@@ -39,3 +39,18 @@ test('index.html embeds week-start meta (monday / default sunday)', () => {
   assert.ok(String(serveStatic('/', tok).raw).includes('<meta name="week-start" content="sunday">'));
   assert.ok(String(serveStatic('/', tok, { weekStart: '"><script>' }).raw).includes('<meta name="week-start" content="sunday">'));
 });
+
+test('default_region defaults to empty; loadConfigFile accepts string, rejects non-string', () => {
+  assert.equal(defaultConfig().default_region, '');
+  assert.equal(loadConfigFile(file('r.json', { default_region: 'tokyo-shibuya' })).default_region, 'tokyo-shibuya');
+  assert.throws(() => loadConfigFile(file('rbad.json', { default_region: 1 })),
+    (e: unknown) => e instanceof AppError && e.code === 'INVALID_ARGUMENT');
+});
+
+test('index.html embeds default-region meta (escaped / default empty)', () => {
+  const tok = 'a'.repeat(64);
+  assert.ok(String(serveStatic('/', tok, { defaultRegion: 'osaka' }).raw).includes('<meta name="default-region" content="osaka">'));
+  assert.ok(String(serveStatic('/', tok).raw).includes('<meta name="default-region" content="">'));
+  const x = String(serveStatic('/', tok, { defaultRegion: '"><script>' }).raw);
+  assert.ok(x.includes('<meta name="default-region" content="&quot;&gt;&lt;script&gt;">'));
+});
